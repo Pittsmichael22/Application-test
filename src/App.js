@@ -1667,7 +1667,6 @@ const handleCSVImport = (e) => {
     energy_level: 5,
     market_context: 5,
     outcome_satisfaction: 5,
-    mental_state: "",
     account_id: ""
   });
 
