@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
-  Cell, CartesianGrid,
   LineChart, Line
 } from "recharts";
+
+
 import { TradeHistoryModal } from "./components/TradeHistoryModal";
 import { BehaviorAnalytics } from "./components/BehaviorAnalytics";
 import "./styles/MODAL_STYLES.css";
@@ -2085,27 +2087,38 @@ const handleCSVImport = (e) => {
           style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontSize: 14 }}
         />
       </div>
-      <div>
-        <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Entry Time</label>
-        <input
-          type="text"
-          placeholder="HH:MM:SS.mmm"
-          value={form.entry_time || ""}
-          onChange={e => {
-            let val = e.target.value.replace(/[^0-9]/g, '');
-            if (val.length > 0) {
-              if (val.length <= 2) val = val;
-              else if (val.length <= 4) val = val.slice(0, 2) + ':' + val.slice(2);
-              else if (val.length <= 6) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4);
-              else if (val.length <= 9) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6);
-              else val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6, 9);
-            }
-            setForm(p => ({...p, entry_time: val}));
-          }}
-          maxLength="12"
-          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontFamily: "monospace", fontSize: 16, letterSpacing: "0.05em" }}
-        />
-        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter numbers only (auto-formatted)</div>
+
+
+
+
+
+<div>
+  <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Exit Time</label>
+  <input
+    type="text"
+    placeholder="HH:MM:SS.mmm"
+    value={form.exit_time || ""}
+    onChange={e => {
+      let val = e.target.value.replace(/[^0-9]/g, '');
+      if (val.length > 0) {
+        if (val.length <= 2) val = val;
+        else if (val.length <= 4) val = val.slice(0, 2) + ':' + val.slice(2);
+        else if (val.length <= 6) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4);
+        else if (val.length <= 9) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6);
+        else val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6, 9);
+      }
+      setForm(p => ({...p, exit_time: val}));
+    }}
+    maxLength="12"
+    style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontFamily: "monospace", fontSize: 16, letterSpacing: "0.05em" }}
+  />
+  <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter numbers only (auto-formatted)</div>
+
+
+
+
+
+
       </div>
     </div>
 
@@ -2120,28 +2133,34 @@ const handleCSVImport = (e) => {
           style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontSize: 14 }}
         />
       </div>
-      <div>
-        <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Exit Time</label>
-        <input
-          type="text"
-          placeholder="HH:MM:SS.mmm"
-          value={form.exit_time || ""}
-          onChange={e => {
-            let val = e.target.value.replace(/[^0-9]/g, '');
-            if (val.length > 0) {
-              if (val.length <= 2) val = val;
-              else if (val.length <= 4) val = val.slice(0, 2) + ':' + val.slice(2);
-              else if (val.length <= 6) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4);
-              else if (val.length <= 9) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6);
-              else val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6, 9);
-            }
-            setForm(p => ({...p, exit_time: val}));
-          }}
-          maxLength="12"
-          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontFamily: "monospace", fontSize: 16, letterSpacing: "0.05em" }}
-        />
-        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter numbers only (auto-formatted)</div>
-      </div>
+
+
+
+<div>
+  <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Exit Time</label>
+  <input
+    type="text"
+    placeholder="HH:MM:SS.mmm"
+    value={form.exit_time || ""}
+    onChange={e => {
+      let val = e.target.value.replace(/[^0-9]/g, '');
+      if (val.length > 0) {
+        if (val.length <= 2) val = val;
+        else if (val.length <= 4) val = val.slice(0, 2) + ':' + val.slice(2);
+        else if (val.length <= 6) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4);
+        else if (val.length <= 9) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6);
+        else val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6, 9);
+      }
+      setForm(p => ({...p, exit_time: val}));
+    }}
+    maxLength="12"
+    style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontFamily: "monospace", fontSize: 16, letterSpacing: "0.05em" }}
+  />
+  <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter numbers only (auto-formatted)</div>
+</div>
+
+
+     
     </div>
 
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
