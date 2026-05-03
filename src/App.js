@@ -2215,8 +2215,6 @@ const handleCSVImport = (e) => {
 
 
 
-
-
       {/* POST-TRADE STAGE - Enhanced Reflection */}
       {stage === "post-trade" && (
         <Card>
