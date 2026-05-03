@@ -2,29 +2,7 @@
 // BEHAVIOR ANALYTICS COMPONENT
 // =========================================================================
 import React, { useMemo } from 'react';
-
-// If you have a shared components folder, use this:
-// import { Card, SectionTitle } from '../components/UI'; // adjust path if needed
-
-// Or use inline styles (quick fix):
-const Card = ({ children, style = {} }) => (
-  <div style={{ 
-    background: "#0f111a", 
-    borderRadius: 12, 
-    padding: 20, 
-    marginBottom: 20, 
-    border: "1px solid #1c1f30",
-    ...style 
-  }}>
-    {children}
-  </div>
-);
-
-const SectionTitle = ({ children }) => (
-  <h3 style={{ marginBottom: 16, color: "#a0b0ff", fontSize: 18, fontWeight: 700 }}>
-    {children}
-  </h3>
-);
+import { Card, SectionTitle } from './components'; // adjust import if needed
 
 export function BehaviorAnalytics({ trades = [] }) {
   const accountTrades = trades; // already filtered by parent if needed

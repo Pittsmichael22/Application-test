@@ -16,11 +16,6 @@ export function TradeHistoryModal({
 
   useEffect(() => {
     if (trade) {
-      console.log("🔍 TradeHistoryModal received trade:", trade);
-      console.log("📍 entry_time value:", trade.entry_time);
-      console.log("📍 exit_time value:", trade.exit_time);
-      console.log("📍 setup_type value:", trade.setup_type);
-      console.log("📍 All keys in trade object:", Object.keys(trade));
       setEditedForm({ ...trade });
     }
   }, [trade]);
