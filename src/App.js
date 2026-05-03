@@ -510,7 +510,6 @@ const [trades, setTrades] = useLocalStorage(
       entry_signal: trade.entry_signal || null,
       conviction_level: toInt(trade.conviction_level),
       is_news_event: toBoolean(trade.is_news_event),
-      mental_state: trade.mental_state || null,
       emotional_intensity: toInt(trade.emotional_intensity),
       
       // ========== EXECUTION FIELDS ==========
@@ -1293,10 +1292,6 @@ function SetupBanner({ onDismiss }) {
 // ─────────────────────────────────────────────────────────────
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────
-// DASHBOARD
-// ─────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────
@@ -1309,20 +1304,23 @@ function Dashboard({
   accounts = [], 
   currentAccountId, 
   setCurrentAccountId,
-  profile   // ← needed for daily_trade_limit
+  profile 
 }) {
-  const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || null);
+  const [selectedAccountId, setSelectedAccountId] = useState(() => 
+    Array.isArray(accounts) && accounts.length > 0 ? accounts[0].id : null
+  );
 
-  const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+  const selectedAccount = Array.isArray(accounts) 
+    ? accounts.find(a => a.id === selectedAccountId) 
+    : null;
 
-  // Filter trades for the selected account
-  const accountTrades = selectedAccountId 
+  const accountTrades = selectedAccountId && Array.isArray(accounts)
     ? trades.filter(t => t.account_id === selectedAccountId) 
     : trades;
 
   const today = new Date().toISOString().split("T")[0];
   const todayTrades = accountTrades.filter(t => t.trade_date === today);
-  const todayPnl = todayTrades.reduce((s, t) => s + (t.pnl || 0), 0);
+  const todayPnl = todayTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
   const todayWins = todayTrades.filter(t => t.result === "Win").length;
   const winRate = todayTrades.length ? todayWins / todayTrades.length : 0;
   const analytics = buildAnalytics(accountTrades);
@@ -1330,18 +1328,22 @@ function Dashboard({
   const now = new Date();
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) + " ET";
 
+  const dailyLimit = profile?.daily_trade_limit ?? 6;
+
   const kpis = [
     { label: "Today P&L", value: fmt$(todayPnl), color: todayPnl >= 0 ? C.green : C.red },
     { 
       label: "Trades Today", 
       value: `${todayTrades.length}`, 
-      sub: `of ${profile?.daily_trade_limit || 6} max`, 
-      color: todayTrades.length >= (profile?.daily_trade_limit || 6) ? C.yellow : C.blue   // ← Color logic here
+      sub: `of ${dailyLimit} max`, 
+      color: todayTrades.length >= dailyLimit ? C.yellow : C.blue 
     },
     { label: "Win Rate", value: fmtPct(winRate), color: C.purple },
     { 
       label: "Discipline", 
-      value: analytics ? `${Math.round(accountTrades.slice(0, 5).reduce((s, t) => s + (t.discipline_score || 7), 0) / Math.min(accountTrades.slice(0, 5).length, 5))}/10` : "—", 
+      value: analytics ? 
+        `${Math.round(accountTrades.slice(0, 5).reduce((s, t) => s + (t.discipline_score || 7), 0) / 
+          Math.min(accountTrades.slice(0, 5).length || 1, 5))}/10` : "—", 
       color: C.green 
     },
   ];
@@ -1351,7 +1353,7 @@ function Dashboard({
       {showSetup && <SetupBanner onDismiss={() => setShowSetup(false)} />}
 
       {/* ACCOUNT SELECTOR */}
-      {accounts.length > 0 && (
+      {Array.isArray(accounts) && accounts.length > 0 && (
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 12, color: C.muted, marginBottom: 6, display: "block" }}>Viewing Account</label>
           <select 
@@ -1392,7 +1394,6 @@ function Dashboard({
           </Card>
         ))}
       </div>
-
 {/* Quick Actions */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
         <Card 
@@ -1845,15 +1846,17 @@ const handleCSVImport = (e) => {
         }
       }
 
-      const finalTrade = {
-        ...form,
-        ...postTradeForm,
-        account_id: form.account_id || currentAccountId,   // ← This was missing
-        pnl: estPnl,
-        risk_reward: riskReward !== "—" ? riskReward : null,
-        result: estPnl > 0 ? "Win" : estPnl < 0 ? "Loss" : "Breakeven",
-        duration_minutes: duration
-      };
+     const finalTrade = {
+  ...form,
+  ...postTradeForm,
+  account_id: form.account_id || currentAccountId,
+  pnl: estPnl,
+  risk_reward: riskReward !== "—" ? riskReward : null,
+  result: estPnl > 0 ? "Win" : estPnl < 0 ? "Loss" : "Breakeven",
+  duration_minutes: duration,
+  // Ensure mental_state is set only once (from form)
+  mental_state: form.mental_state || postTradeForm.mental_state || null
+};
 
       console.log("Final trade object:", finalTrade);
 
@@ -2034,137 +2037,181 @@ const handleCSVImport = (e) => {
 
 
 
-      {/* EXECUTION STAGE - ALL FIELDS BRIGHT & EDITABLE */}
-      {stage === "trade-entry" && (
-        <Card>
-          <h3>2. Execution</h3>
-          <div style={{ marginTop: 16 }}>
-            <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 600 }}>Symbol</label>
-            <input type="text" value={form.symbol} onChange={e => setForm(p => ({...p, symbol: e.target.value.toUpperCase()}))} style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#ffffff", border: `1px solid ${C.border}`, borderRadius: 8 }} />
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Trade Date</label>
-              <input type="date" value={form.trade_date} onChange={e => setForm(p => ({...p, trade_date: e.target.value}))} style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Position Size</label>
-              <input type="number" value={form.position_size} onChange={e => setForm(p => ({...p, position_size: e.target.value}))} style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} />
-            </div>
-          </div>
+{/* EXECUTION STAGE - ALL FIELDS BRIGHT & EDITABLE */}
+{stage === "trade-entry" && (
+  <Card>
+    <h3>2. Execution</h3>
 
-          {/* Removed the top broken fields with red arrows */}
+    <div style={{ marginTop: 16 }}>
+      <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 600 }}>Symbol</label>
+      <input 
+        type="text" 
+        value={form.symbol} 
+        onChange={e => setForm(p => ({...p, symbol: e.target.value.toUpperCase()}))} 
+        style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#ffffff", border: `1px solid ${C.border}`, borderRadius: 8 }} 
+      />
+    </div>
 
-          {/* PRICE & TIME FIELDS (the ones you want to keep - green box) */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Entry Price <span style={{color: C.red}}>*</span></label>
-              <input
-                type="number"
-                step="0.01"
-                value={form.entry_price}
-                onChange={e => setForm(p => ({...p, entry_price: e.target.value}))}
-                style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontSize: 14 }}
-              />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Entry Time</label>
-              <input
-                type="text"
-                placeholder="HH:MM:SS.mmm"
-                value={form.entry_time || ""}
-                onChange={e => {
-                  let val = e.target.value.replace(/[^0-9]/g, '');
-                  if (val.length > 0) {
-                    if (val.length <= 2) val = val;
-                    else if (val.length <= 4) val = val.slice(0, 2) + ':' + val.slice(2);
-                    else if (val.length <= 6) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4);
-                    else if (val.length <= 9) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6);
-                    else val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6, 9);
-                  }
-                  setForm(p => ({...p, entry_time: val}));
-                }}
-                maxLength="12"
-                style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontFamily: "monospace", fontSize: 16, letterSpacing: "0.05em" }}
-              />
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter numbers only (auto-formatted)</div>
-            </div>
-          </div>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
+      <div>
+        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Trade Date</label>
+        <input 
+          type="date" 
+          value={form.trade_date} 
+          onChange={e => setForm(p => ({...p, trade_date: e.target.value}))} 
+          style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+        />
+      </div>
+      <div>
+        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Position Size</label>
+        <input 
+          type="number" 
+          value={form.position_size} 
+          onChange={e => setForm(p => ({...p, position_size: e.target.value}))} 
+          style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+        />
+      </div>
+    </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16, marginBottom: 16 }}>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Exit Price <span style={{color: C.red}}>*</span></label>
-              <input
-                type="number"
-                step="0.01"
-                value={form.exit_price}
-                onChange={e => setForm(p => ({...p, exit_price: e.target.value}))}
-                style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontSize: 14 }}
-              />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Exit Time</label>
-              <input
-                type="text"
-                placeholder="HH:MM:SS.mmm"
-                value={form.exit_time || ""}
-                onChange={e => {
-                  let val = e.target.value.replace(/[^0-9]/g, '');
-                  if (val.length > 0) {
-                    if (val.length <= 2) val = val;
-                    else if (val.length <= 4) val = val.slice(0, 2) + ':' + val.slice(2);
-                    else if (val.length <= 6) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4);
-                    else if (val.length <= 9) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6);
-                    else val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6, 9);
-                  }
-                  setForm(p => ({...p, exit_time: val}));
-                }}
-                maxLength="12"
-                style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontFamily: "monospace", fontSize: 16, letterSpacing: "0.05em" }}
-              />
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter numbers only (auto-formatted)</div>
-            </div>
-          </div>
+    {/* PRICE & TIME FIELDS */}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
+      <div>
+        <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Entry Price <span style={{color: C.red}}>*</span></label>
+        <input
+          type="number"
+          step="0.01"
+          value={form.entry_price}
+          onChange={e => setForm(p => ({...p, entry_price: e.target.value}))}
+          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontSize: 14 }}
+        />
+      </div>
+      <div>
+        <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Entry Time</label>
+        <input
+          type="text"
+          placeholder="HH:MM:SS.mmm"
+          value={form.entry_time || ""}
+          onChange={e => {
+            let val = e.target.value.replace(/[^0-9]/g, '');
+            if (val.length > 0) {
+              if (val.length <= 2) val = val;
+              else if (val.length <= 4) val = val.slice(0, 2) + ':' + val.slice(2);
+              else if (val.length <= 6) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4);
+              else if (val.length <= 9) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6);
+              else val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6, 9);
+            }
+            setForm(p => ({...p, entry_time: val}));
+          }}
+          maxLength="12"
+          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontFamily: "monospace", fontSize: 16, letterSpacing: "0.05em" }}
+        />
+        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter numbers only (auto-formatted)</div>
+      </div>
+    </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Stop Loss</label>
-              <input type="number" step="0.01" value={form.stop_loss} onChange={e => setForm(p => ({...p, stop_loss: e.target.value}))} style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8 }} />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Take Profit</label>
-              <input type="number" step="0.01" value={form.take_profit} onChange={e => setForm(p => ({...p, take_profit: e.target.value}))} style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8 }} />
-            </div>
-          </div>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+      <div>
+        <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Exit Price <span style={{color: C.red}}>*</span></label>
+        <input
+          type="number"
+          step="0.01"
+          value={form.exit_price}
+          onChange={e => setForm(p => ({...p, exit_price: e.target.value}))}
+          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontSize: 14 }}
+        />
+      </div>
+      <div>
+        <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Exit Time</label>
+        <input
+          type="text"
+          placeholder="HH:MM:SS.mmm"
+          value={form.exit_time || ""}
+          onChange={e => {
+            let val = e.target.value.replace(/[^0-9]/g, '');
+            if (val.length > 0) {
+              if (val.length <= 2) val = val;
+              else if (val.length <= 4) val = val.slice(0, 2) + ':' + val.slice(2);
+              else if (val.length <= 6) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4);
+              else if (val.length <= 9) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6);
+              else val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6, 9);
+            }
+            setForm(p => ({...p, exit_time: val}));
+          }}
+          maxLength="12"
+          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontFamily: "monospace", fontSize: 16, letterSpacing: "0.05em" }}
+        />
+        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter numbers only (auto-formatted)</div>
+      </div>
+    </div>
 
-          <div style={{ margin: "20px 0", padding: 16, background: "#1a1d2e", borderRadius: 8, textAlign: "center" }}>
-            <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 600 }}>Risk : Reward</label>
-            <div style={{ fontSize: "22px", fontWeight: 700, color: C.blue }}>{riskReward}</div>
-          </div>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
+      <div>
+        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Stop Loss</label>
+        <input 
+          type="number" 
+          step="0.01" 
+          value={form.stop_loss} 
+          onChange={e => setForm(p => ({...p, stop_loss: e.target.value}))} 
+          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8 }} 
+        />
+      </div>
+      <div>
+        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Take Profit</label>
+        <input 
+          type="number" 
+          step="0.01" 
+          value={form.take_profit} 
+          onChange={e => setForm(p => ({...p, take_profit: e.target.value}))} 
+          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8 }} 
+        />
+      </div>
+    </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Commissions</label>
-              <input type="number" step="0.01" value={form.commissions || ""} onChange={e => setForm(p => ({...p, commissions: e.target.value}))} style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} />
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Fees</label>
-              <input type="number" step="0.01" value={form.fees || ""} onChange={e => setForm(p => ({...p, fees: e.target.value}))} style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} />
-            </div>
-          </div>
+    <div style={{ margin: "20px 0", padding: 16, background: "#1a1d2e", borderRadius: 8, textAlign: "center" }}>
+      <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 600 }}>Risk : Reward</label>
+      <div style={{ fontSize: "22px", fontWeight: 700, color: C.blue }}>{riskReward}</div>
+    </div>
 
-          {estPnl !== 0 && (
-            <div style={{ margin: "24px 0", padding: 14, background: estPnl > 0 ? C.green + "20" : C.red + "20", color: estPnl > 0 ? C.green : C.red, borderRadius: 8, textAlign: "center", fontWeight: 700 }}>
-              Estimated P&L: {fmt$(estPnl)}
-            </div>
-          )}
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
+      <div>
+        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Commissions</label>
+        <input 
+          type="number" 
+          step="0.01" 
+          value={form.commissions || ""} 
+          onChange={e => setForm(p => ({...p, commissions: e.target.value}))} 
+          style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+        />
+      </div>
+      <div>
+        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Fees</label>
+        <input 
+          type="number" 
+          step="0.01" 
+          value={form.fees || ""} 
+          onChange={e => setForm(p => ({...p, fees: e.target.value}))} 
+          style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+        />
+      </div>
+    </div>
 
-          <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
-            <Btn onClick={() => setStage("pre-trade")}>← Back</Btn>
-            <Btn onClick={handleNext} disabled={!canProceed()}>Next → Reflection</Btn>
-          </div>
-        </Card>
-      )}
+    {estPnl !== 0 && (
+      <div style={{ margin: "24px 0", padding: 14, background: estPnl > 0 ? C.green + "20" : C.red + "20", color: estPnl > 0 ? C.green : C.red, borderRadius: 8, textAlign: "center", fontWeight: 700 }}>
+        Estimated P&L: {fmt$(estPnl)}
+      </div>
+    )}
+
+    <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
+      <Btn onClick={() => setStage("pre-trade")}>← Back</Btn>
+      <Btn onClick={handleNext} disabled={!canProceed()}>Next → Reflection</Btn>
+    </div>
+  </Card>
+)}
+
+
+
+
+
 
 
 
