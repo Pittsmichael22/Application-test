@@ -1677,7 +1677,6 @@ const handleCSVImport = (e) => {
     post_trade_emotion: "",
     post_trade_reflection: "",
     rule_violations: [],
-    post_trade_reflection: "",
     what_to_improve: ""
   });
 
