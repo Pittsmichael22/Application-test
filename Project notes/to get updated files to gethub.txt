@@ -1,0 +1,33 @@
+to get updated files to gethub:
+
+PS C:\Users\pitts\futures-os>
+PS C:\Users\pitts\futures-os> git status
+On branch master
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   src/App.js
+
+no changes added to commit (use "git add" and/or "git commit -a")
+PS C:\Users\pitts\futures-os> git add .
+PS C:\Users\pitts\futures-os> git commit -m "fix: resolve build errors for Vercel deployment"
+[master f6e7029] fix: resolve build errors for Vercel deployment
+ 1 file changed, 63 insertions(+), 44 deletions(-)
+PS C:\Users\pitts\futures-os>git commit -m "fix: resolve build errors for Vercel deployment"
+Enumerating objects: 7, done.
+Counting objects: 100% (7/7), done.
+Delta compression using up to 12 threads
+Compressing objects: 100% (4/4), done.
+Writing objects: 100% (4/4), 612 bytes | 612.00 KiB/s, done.
+Total 4 (delta 3), reused 0 (delta 0), pack-reused 0 (from 0)
+remote: Resolving deltas: 100% (3/3), completed with 3 local objects.
+To https://github.com/Pittsmichael22/Application-test.git
+   15f6bb1..f6e7029  master -> master
+PS C:\Users\pitts\futures-os>
+
+
+
+
+Quick Fix: Tell the user to clear their browser localStorage for the trades. Here's a simple way:
+Open your browser console (F12) and run:
+javascriptlocalStorage.removeItem('fos_trades_<your-uid>')

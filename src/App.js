@@ -373,9 +373,8 @@ function fmtPct(n) { return `${(n * 100).toFixed(1)}%`; }
 // ─────────────────────────────────────────────────────────────
 // SUPABASE HOOK - FIXED
 // ─────────────────────────────────────────────────────────────
-
 // ─────────────────────────────────────────────────────────────
-// SUPABASE HOOK - CORRECTED & COMPLETE (CLEAN VERSION)
+// SUPABASE HOOK - FINAL CLEAN VERSION
 // ─────────────────────────────────────────────────────────────
 function useSupabase(userId) {
   const isConfigured = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -384,20 +383,15 @@ function useSupabase(userId) {
   const [trades, setTrades] = useLocalStorage(`fos_trades_${uid || "demo"}`, []);
   const [customStrategies, setCustomStrategies] = useLocalStorage(`fos_custom_strategies_${uid || "demo"}`, []);
 
-  // ─────────────────────────────────────────
-  // FETCH TRADES
-  // ─────────────────────────────────────────
   const fetchTrades = useCallback(async () => {
     if (!isConfigured || !uid) return;
 
     try {
       await ensureValidToken();
-
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/trades?user_id=eq.${uid}&order=created_at.desc&select=*`,
         { headers: authHeaders() }
       );
-
       const data = await res.json();
       setTrades(Array.isArray(data) ? data : []);
     } catch (e) {
@@ -405,9 +399,6 @@ function useSupabase(userId) {
     }
   }, [isConfigured, uid, setTrades]);
 
-  // ─────────────────────────────────────────
-  // ADD TRADE
-  // ─────────────────────────────────────────
   const addTrade = useCallback(async (tradeData) => {
     const newTrade = {
       ...tradeData,
@@ -423,7 +414,6 @@ function useSupabase(userId) {
 
     try {
       await ensureValidToken();
-
       const res = await fetch(`${SUPABASE_URL}/rest/v1/trades`, {
         method: "POST",
         headers: { ...authHeaders(), Prefer: "return=representation" },
@@ -431,7 +421,6 @@ function useSupabase(userId) {
       });
 
       const saved = await res.json();
-
       if (res.ok && saved?.[0]) {
         setTrades(prev => [saved[0], ...prev]);
         return saved[0];
@@ -444,9 +433,6 @@ function useSupabase(userId) {
     return newTrade;
   }, [isConfigured, uid, setTrades]);
 
-  // ─────────────────────────────────────────
-  // DELETE TRADE
-  // ─────────────────────────────────────────
   const deleteTrade = useCallback(async (id) => {
     if (isConfigured && uid) {
       try {
@@ -458,20 +444,15 @@ function useSupabase(userId) {
         console.error("deleteTrade error:", e);
       }
     }
-
     setTrades(prev => prev.filter(t => t.id !== id));
   }, [isConfigured, uid, setTrades]);
 
-  // ─────────────────────────────────────────
-  // UPDATE TRADE
-  // ─────────────────────────────────────────
   const updateTrade = useCallback(async (id, updatedData) => {
     let updatedTrade = null;
 
     setTrades(prev => {
       const existing = prev.find(t => t.id === id);
       if (!existing) return prev;
-
       updatedTrade = { ...existing, ...updatedData };
       return prev.map(t => (t.id === id ? updatedTrade : t));
     });
@@ -479,7 +460,6 @@ function useSupabase(userId) {
     if (isConfigured && uid) {
       try {
         await ensureValidToken();
-
         const res = await fetch(
           `${SUPABASE_URL}/rest/v1/trades?id=eq.${id}&user_id=eq.${uid}`,
           {
@@ -488,26 +468,19 @@ function useSupabase(userId) {
             body: JSON.stringify(updatedData)
           }
         );
-
         const saved = await res.json();
-
         if (res.ok && saved?.[0]) {
-          setTrades(prev =>
-            prev.map(t => (t.id === id ? saved[0] : t))
-          );
+          setTrades(prev => prev.map(t => (t.id === id ? saved[0] : t)));
           return saved[0];
         }
       } catch (e) {
         console.error("updateTrade error:", e);
       }
     }
-
     return updatedTrade;
   }, [isConfigured, uid, setTrades]);
 
-  // ─────────────────────────────────────────
-  // CUSTOM STRATEGIES
-  // ─────────────────────────────────────────
+  // Custom Strategies (similar cleanup)
   const addCustomStrategy = useCallback(async (strategy) => {
     const newStrategy = {
       user_id: uid,
@@ -524,15 +497,12 @@ function useSupabase(userId) {
 
     try {
       await ensureValidToken();
-
       const res = await fetch(`${SUPABASE_URL}/rest/v1/custom_strategies`, {
         method: "POST",
         headers: { ...authHeaders(), Prefer: "return=representation" },
         body: JSON.stringify(newStrategy)
       });
-
       const saved = await res.json();
-
       if (res.ok && saved?.[0]) {
         setCustomStrategies(prev => [saved[0], ...prev]);
         return saved[0];
@@ -556,17 +526,11 @@ function useSupabase(userId) {
         console.error("deleteCustomStrategy error:", e);
       }
     }
-
     setCustomStrategies(prev => prev.filter(s => s.id !== id));
   }, [isConfigured, uid, setCustomStrategies]);
 
-  // ─────────────────────────────────────────
-  // INITIAL LOAD
-  // ─────────────────────────────────────────
   useEffect(() => {
-    if (uid) {
-      fetchTrades();
-    }
+    if (uid) fetchTrades();
   }, [uid, fetchTrades]);
 
   return {
@@ -581,6 +545,12 @@ function useSupabase(userId) {
     isConfigured
   };
 }
+
+
+
+
+
+
 // ─────────────────────────────────────────────────────────────
 // MANAGE CUSTOM STRATEGIES PAGE
 // ─────────────────────────────────────────────────────────────
