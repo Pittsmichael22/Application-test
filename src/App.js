@@ -373,9 +373,8 @@ function fmtPct(n) { return `${(n * 100).toFixed(1)}%`; }
 // ─────────────────────────────────────────────────────────────
 // SUPABASE HOOK - FIXED
 // ─────────────────────────────────────────────────────────────
-
 // ─────────────────────────────────────────────────────────────
-// SUPABASE HOOK - CORRECTED & COMPLETE
+// SUPABASE HOOK - FINAL CLEAN VERSION
 // ─────────────────────────────────────────────────────────────
 function useSupabase(userId) {
   const isConfigured = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -383,30 +382,36 @@ function useSupabase(userId) {
 
   const [trades, setTrades] = useLocalStorage(`fos_trades_${uid || "demo"}`, []);
   const [customStrategies, setCustomStrategies] = useLocalStorage(`fos_custom_strategies_${uid || "demo"}`, []);
-  const [loading, setLoading] = useState(false);
 
   const fetchTrades = useCallback(async () => {
     if (!isConfigured || !uid) return;
-    setLoading(true);
+
     try {
       await ensureValidToken();
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/trades?user_id=eq.${uid}&order=created_at.desc&select=*`, {
-        headers: authHeaders()
-      });
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/trades?user_id=eq.${uid}&order=created_at.desc&select=*`,
+        { headers: authHeaders() }
+      );
       const data = await res.json();
       setTrades(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("fetchTrades error:", e);
     }
-    setLoading(false);
-  }, [isConfigured, uid]);
+  }, [isConfigured, uid, setTrades]);
 
   const addTrade = useCallback(async (tradeData) => {
-    const newTrade = { ...tradeData, id: Date.now().toString(), user_id: uid, created_at: new Date().toISOString() };
+    const newTrade = {
+      ...tradeData,
+      id: Date.now().toString(),
+      user_id: uid,
+      created_at: new Date().toISOString()
+    };
+
     if (!isConfigured || !uid) {
       setTrades(prev => [newTrade, ...prev]);
       return newTrade;
     }
+
     try {
       await ensureValidToken();
       const res = await fetch(`${SUPABASE_URL}/rest/v1/trades`, {
@@ -414,57 +419,69 @@ function useSupabase(userId) {
         headers: { ...authHeaders(), Prefer: "return=representation" },
         body: JSON.stringify({ ...tradeData, user_id: uid })
       });
+
       const saved = await res.json();
       if (res.ok && saved?.[0]) {
         setTrades(prev => [saved[0], ...prev]);
         return saved[0];
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error("addTrade error:", e);
+    }
+
     setTrades(prev => [newTrade, ...prev]);
     return newTrade;
-  }, [isConfigured, uid]);
+  }, [isConfigured, uid, setTrades]);
 
   const deleteTrade = useCallback(async (id) => {
     if (isConfigured && uid) {
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/trades?id=eq.${id}&user_id=eq.${uid}`, {
-          method: "DELETE",
-          headers: authHeaders()
-        });
-      } catch (e) {}
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/trades?id=eq.${id}&user_id=eq.${uid}`,
+          { method: "DELETE", headers: authHeaders() }
+        );
+      } catch (e) {
+        console.error("deleteTrade error:", e);
+      }
     }
     setTrades(prev => prev.filter(t => t.id !== id));
-  }, [isConfigured, uid]);
+  }, [isConfigured, uid, setTrades]);
 
   const updateTrade = useCallback(async (id, updatedData) => {
-    const oldTrade = trades.find(t => t.id === id);
-    if (!oldTrade) return null;
+    let updatedTrade = null;
+
+    setTrades(prev => {
+      const existing = prev.find(t => t.id === id);
+      if (!existing) return prev;
+      updatedTrade = { ...existing, ...updatedData };
+      return prev.map(t => (t.id === id ? updatedTrade : t));
+    });
 
     if (isConfigured && uid) {
       try {
         await ensureValidToken();
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/trades?id=eq.${id}&user_id=eq.${uid}`, {
-          method: "PATCH",
-          headers: { ...authHeaders(), Prefer: "return=representation" },
-          body: JSON.stringify(updatedData)
-        });
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/trades?id=eq.${id}&user_id=eq.${uid}`,
+          {
+            method: "PATCH",
+            headers: { ...authHeaders(), Prefer: "return=representation" },
+            body: JSON.stringify(updatedData)
+          }
+        );
         const saved = await res.json();
         if (res.ok && saved?.[0]) {
-          setTrades(prev => prev.map(t => t.id === id ? saved[0] : t));
+          setTrades(prev => prev.map(t => (t.id === id ? saved[0] : t)));
           return saved[0];
         }
       } catch (e) {
         console.error("updateTrade error:", e);
       }
     }
+    return updatedTrade;
+  }, [isConfigured, uid, setTrades]);
 
-    const merged = { ...oldTrade, ...updatedData };
-    setTrades(prev => prev.map(t => t.id === id ? merged : t));
-    return merged;
-  }, [isConfigured, uid, trades]);
-
+  // Custom Strategies (similar cleanup)
   const addCustomStrategy = useCallback(async (strategy) => {
-    if (!isConfigured || !uid) return null;
     const newStrategy = {
       user_id: uid,
       name: strategy.name,
@@ -472,16 +489,17 @@ function useSupabase(userId) {
       confirmation_factors: strategy.confirmation_factors || null,
       created_at: new Date().toISOString(),
     };
+
+    if (!isConfigured || !uid) {
+      setCustomStrategies(prev => [newStrategy, ...prev]);
+      return newStrategy;
+    }
+
     try {
       await ensureValidToken();
       const res = await fetch(`${SUPABASE_URL}/rest/v1/custom_strategies`, {
         method: "POST",
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${_token || SUPABASE_ANON_KEY}`,
-          "Content-Type": "application/json",
-          Prefer: "return=representation"
-        },
+        headers: { ...authHeaders(), Prefer: "return=representation" },
         body: JSON.stringify(newStrategy)
       });
       const saved = await res.json();
@@ -490,24 +508,26 @@ function useSupabase(userId) {
         return saved[0];
       }
     } catch (e) {
-      console.error(e);
+      console.error("addCustomStrategy error:", e);
     }
-    const local = { ...newStrategy, id: Date.now().toString() };
-    setCustomStrategies(prev => [local, ...prev]);
-    return local;
-  }, [isConfigured, uid]);
+
+    setCustomStrategies(prev => [newStrategy, ...prev]);
+    return newStrategy;
+  }, [isConfigured, uid, setCustomStrategies]);
 
   const deleteCustomStrategy = useCallback(async (id) => {
     if (isConfigured && uid) {
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/custom_strategies?id=eq.${id}&user_id=eq.${uid}`, {
-          method: "DELETE",
-          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${_token || SUPABASE_ANON_KEY}` }
-        });
-      } catch (e) { console.error(e); }
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/custom_strategies?id=eq.${id}&user_id=eq.${uid}`,
+          { method: "DELETE", headers: authHeaders() }
+        );
+      } catch (e) {
+        console.error("deleteCustomStrategy error:", e);
+      }
     }
     setCustomStrategies(prev => prev.filter(s => s.id !== id));
-  }, [isConfigured, uid]);
+  }, [isConfigured, uid, setCustomStrategies]);
 
   useEffect(() => {
     if (uid) fetchTrades();
@@ -515,7 +535,6 @@ function useSupabase(userId) {
 
   return {
     trades,
-    loading,
     addTrade,
     deleteTrade,
     updateTrade,
@@ -526,6 +545,12 @@ function useSupabase(userId) {
     isConfigured
   };
 }
+
+
+
+
+
+
 // ─────────────────────────────────────────────────────────────
 // MANAGE CUSTOM STRATEGIES PAGE
 // ─────────────────────────────────────────────────────────────
@@ -1748,196 +1773,197 @@ const handleCSVImport = (e) => {
 
 
 
-{/* EXECUTION STAGE - ALL FIELDS BRIGHT & EDITABLE */}
-{stage === "trade-entry" && (
-  <Card>
-    <h3>2. Execution</h3>
+      {/* EXECUTION STAGE - ALL FIELDS BRIGHT & EDITABLE */}
+      {stage === "trade-entry" && (
+        <Card>
+          <h3>2. Execution</h3>
 
-    <div style={{ marginTop: 16 }}>
-      <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 600 }}>Symbol</label>
-      <input 
-        type="text" 
-        value={form.symbol} 
-        onChange={e => setForm(p => ({...p, symbol: e.target.value.toUpperCase()}))} 
-        style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#ffffff", border: `1px solid ${C.border}`, borderRadius: 8 }} 
-      />
-    </div>
+          <div style={{ marginTop: 16 }}>
+            <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 600 }}>Symbol</label>
+            <input 
+              type="text" 
+              value={form.symbol} 
+              onChange={e => setForm(p => ({...p, symbol: e.target.value.toUpperCase()}))} 
+              style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#ffffff", border: `1px solid ${C.border}`, borderRadius: 8 }} 
+            />
+          </div>
 
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-      <div>
-        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Trade Date</label>
-        <input 
-          type="date" 
-          value={form.trade_date} 
-          onChange={e => setForm(p => ({...p, trade_date: e.target.value}))} 
-          style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
-        />
-      </div>
-      <div>
-        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Position Size</label>
-        <input 
-          type="number" 
-          value={form.position_size} 
-          onChange={e => setForm(p => ({...p, position_size: e.target.value}))} 
-          style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
-        />
-      </div>
-    </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
+            <div>
+              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Trade Date</label>
+              <input 
+                type="date" 
+                value={form.trade_date} 
+                onChange={e => setForm(p => ({...p, trade_date: e.target.value}))} 
+                style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Position Size</label>
+              <input 
+                type="number" 
+                value={form.position_size} 
+                onChange={e => setForm(p => ({...p, position_size: e.target.value}))} 
+                style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+              />
+            </div>
+          </div>
 
-    {/* PRICE & TIME FIELDS */}
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-      <div>
-        <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Entry Price <span style={{color: C.red}}>*</span></label>
-        <input
-          type="number"
-          step="0.01"
-          value={form.entry_price}
-          onChange={e => setForm(p => ({...p, entry_price: e.target.value}))}
-          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontSize: 14 }}
-        />
-      </div>
-
-
-
-
-
-<div>
-  <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Exit Time</label>
-  <input
-    type="text"
-    placeholder="HH:MM:SS.mmm"
-    value={form.exit_time || ""}
-    onChange={e => {
-      let val = e.target.value.replace(/[^0-9]/g, '');
-      if (val.length > 0) {
-        if (val.length <= 2) val = val;
-        else if (val.length <= 4) val = val.slice(0, 2) + ':' + val.slice(2);
-        else if (val.length <= 6) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4);
-        else if (val.length <= 9) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6);
-        else val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6, 9);
-      }
-      setForm(p => ({...p, exit_time: val}));
-    }}
-    maxLength="12"
-    style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontFamily: "monospace", fontSize: 16, letterSpacing: "0.05em" }}
-  />
-  <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter numbers only (auto-formatted)</div>
-
-
-
-
-
-
-      </div>
-    </div>
-
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
-      <div>
-        <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 500 }}>Exit Price <span style={{color: C.red}}>*</span></label>
-        <input
-          type="number"
-          step="0.01"
-          value={form.exit_price}
-          onChange={e => setForm(p => ({...p, exit_price: e.target.value}))}
-          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontSize: 14 }}
-        />
-      </div>
-
-
-
-<div>
-  <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Exit Time</label>
-  <input
-    type="text"
-    placeholder="HH:MM:SS.mmm"
-    value={form.exit_time || ""}
-    onChange={e => {
-      let val = e.target.value.replace(/[^0-9]/g, '');
-      if (val.length > 0) {
-        if (val.length <= 2) val = val;
-        else if (val.length <= 4) val = val.slice(0, 2) + ':' + val.slice(2);
-        else if (val.length <= 6) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4);
-        else if (val.length <= 9) val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6);
-        else val = val.slice(0, 2) + ':' + val.slice(2, 4) + ':' + val.slice(4, 6) + '.' + val.slice(6, 9);
-      }
-      setForm(p => ({...p, exit_time: val}));
-    }}
-    maxLength="12"
-    style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8, fontFamily: "monospace", fontSize: 16, letterSpacing: "0.05em" }}
-  />
-  <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Enter numbers only (auto-formatted)</div>
+        {/* TIME FIELDS - FIXED */}
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
+  <div>
+    <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Entry Time</label>
+    <input 
+      type="text" 
+      placeholder="HH:MM:SS.mmm" 
+      value={form.entry_time || ""} 
+      onChange={e => {
+        let val = e.target.value.replace(/[^0-9:.]/g, ''); // allow : and .
+        // Simple auto-format
+        if (val.length >= 4 && !val.includes(':')) {
+          val = val.replace(/^(\d{2})(\d{2})/, '$1:$2');
+        }
+        if (val.length >= 7 && val.match(/\d{2}:\d{2}$/)) {
+          val = val.replace(/^(\d{2}:\d{2})(\d{2})/, '$1:$2');
+        }
+        if (val.length >= 10 && val.match(/\d{2}:\d{2}:\d{2}$/)) {
+          val = val.replace(/^(\d{2}:\d{2}:\d{2})(\d{3})/, '$1.$2');
+        }
+        setForm(p => ({...p, entry_time: val.slice(0, 12)}));
+      }}
+      style={{ 
+        width: "100%", 
+        padding: 14, 
+        background: "#1a1d2e", 
+        color: "#e0e0e0", 
+        borderRadius: 8, 
+        fontFamily: "monospace", 
+        fontSize: 16 
+      }} 
+    />
+  </div>
+  <div>
+    <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Exit Time</label>
+    <input 
+      type="text" 
+      placeholder="HH:MM:SS.mmm" 
+      value={form.exit_time || ""} 
+      onChange={e => {
+        let val = e.target.value.replace(/[^0-9:.]/g, '');
+        // Simple auto-format
+        if (val.length >= 4 && !val.includes(':')) {
+          val = val.replace(/^(\d{2})(\d{2})/, '$1:$2');
+        }
+        if (val.length >= 7 && val.match(/\d{2}:\d{2}$/)) {
+          val = val.replace(/^(\d{2}:\d{2})(\d{2})/, '$1:$2');
+        }
+        if (val.length >= 10 && val.match(/\d{2}:\d{2}:\d{2}$/)) {
+          val = val.replace(/^(\d{2}:\d{2}:\d{2})(\d{3})/, '$1.$2');
+        }
+        setForm(p => ({...p, exit_time: val.slice(0, 12)}));
+      }}
+      style={{ 
+        width: "100%", 
+        padding: 14, 
+        background: "#1a1d2e", 
+        color: "#e0e0e0", 
+        borderRadius: 8, 
+        fontFamily: "monospace", 
+        fontSize: 16 
+      }} 
+    />
+  </div>
 </div>
 
+          {/* PRICE FIELDS */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
+            <div>
+              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Entry Price *</label>
+              <input 
+                type="number" 
+                step="0.01" 
+                value={form.entry_price || ""} 
+                onChange={e => setForm(p => ({...p, entry_price: e.target.value}))} 
+                style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Exit Price *</label>
+              <input 
+                type="number" 
+                step="0.01" 
+                value={form.exit_price || ""} 
+                onChange={e => setForm(p => ({...p, exit_price: e.target.value}))} 
+                style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+              />
+            </div>
+          </div>
 
-     
-    </div>
+          {/* RISK FIELDS */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
+            <div>
+              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Stop Loss</label>
+              <input 
+                type="number" 
+                step="0.01" 
+                value={form.stop_loss || ""} 
+                onChange={e => setForm(p => ({...p, stop_loss: e.target.value}))} 
+                style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Take Profit</label>
+              <input 
+                type="number" 
+                step="0.01" 
+                value={form.take_profit || ""} 
+                onChange={e => setForm(p => ({...p, take_profit: e.target.value}))} 
+                style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+              />
+            </div>
+          </div>
 
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-      <div>
-        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Stop Loss</label>
-        <input 
-          type="number" 
-          step="0.01" 
-          value={form.stop_loss} 
-          onChange={e => setForm(p => ({...p, stop_loss: e.target.value}))} 
-          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8 }} 
-        />
-      </div>
-      <div>
-        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Take Profit</label>
-        <input 
-          type="number" 
-          step="0.01" 
-          value={form.take_profit} 
-          onChange={e => setForm(p => ({...p, take_profit: e.target.value}))} 
-          style={{ width: "100%", padding: 16, background: "#1a1d2e", color: "#ffffff", border: `2px solid ${C.border}`, borderRadius: 8 }} 
-        />
-      </div>
-    </div>
+          {/* RISK : REWARD */}
+          <div style={{ marginTop: 16, textAlign: "center", fontSize: 13, color: C.muted }}>
+            Risk : Reward — {riskReward}
+          </div>
 
-    <div style={{ margin: "20px 0", padding: 16, background: "#1a1d2e", borderRadius: 8, textAlign: "center" }}>
-      <label style={{ display: "block", marginBottom: 8, color: "#ffffff", fontWeight: 600 }}>Risk : Reward</label>
-      <div style={{ fontSize: "22px", fontWeight: 700, color: C.blue }}>{riskReward}</div>
-    </div>
+          {/* COMMISSIONS & FEES */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
+            <div>
+              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Commissions</label>
+              <input 
+                type="number" 
+                step="0.01" 
+                value={form.commissions || ""} 
+                onChange={e => setForm(p => ({...p, commissions: e.target.value}))} 
+                style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Fees</label>
+              <input 
+                type="number" 
+                step="0.01" 
+                value={form.fees || ""} 
+                onChange={e => setForm(p => ({...p, fees: e.target.value}))} 
+                style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
+              />
+            </div>
+          </div>
 
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-      <div>
-        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Commissions</label>
-        <input 
-          type="number" 
-          step="0.01" 
-          value={form.commissions || ""} 
-          onChange={e => setForm(p => ({...p, commissions: e.target.value}))} 
-          style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
-        />
-      </div>
-      <div>
-        <label style={{ display: "block", marginBottom: 8, color: "#ffffff" }}>Fees</label>
-        <input 
-          type="number" 
-          step="0.01" 
-          value={form.fees || ""} 
-          onChange={e => setForm(p => ({...p, fees: e.target.value}))} 
-          style={{ width: "100%", padding: 14, background: "#1a1d2e", color: "#e0e0e0", borderRadius: 8 }} 
-        />
-      </div>
-    </div>
+          {estPnl !== 0 && (
+            <div style={{ margin: "24px 0", padding: 14, background: estPnl > 0 ? C.green + "20" : C.red + "20", color: estPnl > 0 ? C.green : C.red, borderRadius: 8, textAlign: "center", fontWeight: 700 }}>
+              Estimated P&L: {fmt$(estPnl)}
+            </div>
+          )}
 
-    {estPnl !== 0 && (
-      <div style={{ margin: "24px 0", padding: 14, background: estPnl > 0 ? C.green + "20" : C.red + "20", color: estPnl > 0 ? C.green : C.red, borderRadius: 8, textAlign: "center", fontWeight: 700 }}>
-        Estimated P&L: {fmt$(estPnl)}
-      </div>
-    )}
-
-    <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
-      <Btn onClick={() => setStage("pre-trade")}>← Back</Btn>
-      <Btn onClick={handleNext} disabled={!canProceed()}>Next → Reflection</Btn>
-    </div>
-  </Card>
-)}
-
-
-
+          <div style={{ display: "flex", gap: 12, marginTop: 32 }}>
+            <Btn onClick={() => setStage("pre-trade")}>← Back</Btn>
+            <Btn onClick={handleNext} disabled={!canProceed()}>Next → Reflection</Btn>
+          </div>
+        </Card>
+      )}
 
 
 
@@ -2114,16 +2140,15 @@ const sortedTrades = [...accountTrades].sort((a, b) =>
 );
 const lastTrade = sortedTrades[0];
 
-  const [loading, setLoading] = useState(true);
+//  const [loading, setLoading] = useState(true);
   const [review, setReview] = useState(null);
 
-  useEffect(() => {
-    if (!lastTrade) {
-      setLoading(false);
-      return;
-    }
+ useEffect(() => {
+  if (!lastTrade) {
+    return;
+  }
 
-    const generateSmartReview = () => {
+  const generateSmartReview = () => {
       const impulsiveness = lastTrade.impulsiveness || 5;
       const confidence = lastTrade.conviction_level || 5;
       const ruleAdherence = lastTrade.rule_adherence || 5;
@@ -2173,11 +2198,11 @@ const lastTrade = sortedTrades[0];
         }
       });
 
-      setLoading(false);
-    };
+//      setLoading(false);
+   };
 
-    generateSmartReview();
-  }, [lastTrade]);
+  generateSmartReview();
+}, [lastTrade]);
 
   if (!lastTrade) return <div style={{ textAlign: "center", padding: 60 }}>No trades logged yet.</div>;
 
@@ -2218,18 +2243,17 @@ const lastTrade = sortedTrades[0];
 
 
 
-      <Card style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 13, color: C.muted }}>{lastTrade.symbol} {lastTrade.direction} • {lastTrade.trade_date}</div>
-        <div style={{ fontSize: 36, fontWeight: 800, color: (lastTrade.pnl || 0) >= 0 ? C.green : C.red }}>
-          {fmt$(lastTrade.pnl || 0)}
-        </div>
-      </Card>
+    <Card style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 13, color: C.muted }}>{lastTrade.symbol} {lastTrade.direction} • {lastTrade.trade_date}</div>
+      <div style={{ fontSize: 36, fontWeight: 800, color: (lastTrade.pnl || 0) >= 0 ? C.green : C.red }}>
+        {fmt$(lastTrade.pnl || 0)}
+      </div>
+    </Card>
 
-      {loading ? (
-        <Card style={{ padding: 60, textAlign: "center" }}>Analyzing your trading patterns...</Card>
-      ) : review && (
-        <>
-          <Card>
+    {/* Removed the loading check - directly show review */}
+    {review && (
+      <>
+        <Card>
             <div style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em" }}>Discipline Score</div>
             <div style={{ fontSize: 52, fontWeight: 900, color: review.disciplineScore >= 7 ? C.green : C.yellow }}>
               {review.disciplineScore}
@@ -2246,6 +2270,8 @@ const lastTrade = sortedTrades[0];
               <strong style={{ color: C.green }}>Recommendation:</strong> {review.patternRecognition.recommendation}
             </div>
           </Card>
+  
+
 
           {/* Emotional Flags */}
           {review.emotionalFlags?.length > 0 && (
@@ -3586,35 +3612,42 @@ function TradeLog({
 
 
 
+
+
+
+
+
+
 // ─────────────────────────────────────────────────────────────
-// PASSWORD RESET COMPONENT
+// PASSWORD RESET FORM (Forgot Password Flow)
 // ─────────────────────────────────────────────────────────────
 function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError, authLoading }) {
   const [resetSent, setResetSent] = useState(false);
 
   const handleResetPassword = async () => {
     setLocalError("");
-    if (!email) { 
-      setLocalError("Please enter your email."); 
-      return; 
+    if (!email) {
+      setLocalError("Please enter your email.");
+      return;
     }
 
     try {
       const res = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email: email.trim() })
       });
 
       const data = await res.json();
-      
-      if (res.ok || data.user) {
+
+      if (res.ok || data?.user) {
         setResetSent(true);
       } else {
-        setLocalError(data.error_description || data.error || "Failed to send reset link");
+        setLocalError(data?.error_description || data?.error || "Failed to send reset link");
       }
     } catch (err) {
-      setLocalError("Error sending reset link: " + err.message);
+      setLocalError("Connection error. Please try again.");
+      console.error(err);
     }
   };
 
@@ -3629,11 +3662,12 @@ function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError,
               <p style={{ color: C.muted, fontSize: 14, marginBottom: 20 }}>
                 We've sent a password reset link to <strong>{email}</strong>
               </p>
-              <p style={{ color: C.sub, fontSize: 12, marginBottom: 20, lineHeight: 1.6 }}>
-                Click the link in your email to set a new password. The link expires in 24 hours.
+              <p style={{ color: C.sub, fontSize: 13, lineHeight: 1.6 }}>
+                Click the link in your email to set a new password.<br />
+                The link expires in 24 hours.
               </p>
-              <p style={{ color: C.sub, fontSize: 12, marginBottom: 20 }}>
-                Not seeing it? Check your spam folder or try another email address.
+              <p style={{ color: C.muted, fontSize: 12, marginTop: 20 }}>
+                Not seeing it? Check your spam folder.
               </p>
             </div>
 
@@ -3641,14 +3675,14 @@ function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError,
               onClick={onBack}
               style={{
                 width: "100%",
-                padding: 12,
+                padding: 14,
                 background: C.panel,
                 border: `1px solid ${C.border}`,
-                borderRadius: 8,
+                borderRadius: 10,
                 color: C.text,
-                cursor: "pointer",
-                fontSize: 14,
-                fontWeight: 600
+                fontSize: 15,
+                fontWeight: 600,
+                cursor: "pointer"
               }}
             >
               Back to Sign In
@@ -3662,47 +3696,74 @@ function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError,
   return (
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
+        {/* Header matching your screenshot */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ width: 56, height: 56, background: `linear-gradient(135deg, ${C.green}, ${C.blue})`, borderRadius: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 14 }}>📊</div>
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "0.08em", color: C.text }}>Reset Password</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Enter your email to receive a reset link</div>
+          <div style={{ 
+            width: 64, 
+            height: 64, 
+            background: "linear-gradient(135deg, #22d3ee, #6366f1)", 
+            borderRadius: 16, 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center", 
+            margin: "0 auto 20px",
+            boxShadow: "0 10px 30px rgba(34, 211, 238, 0.3)"
+          }}>
+            📊
+          </div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: C.text, marginBottom: 8 }}>Reset Password</h1>
+          <p style={{ color: C.muted, fontSize: 15 }}>Enter your email to receive a reset link</p>
         </div>
 
         <Card>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div>
-              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Email</label>
-              <input 
-                type="email" 
-                value={email} 
+              <label style={{ fontSize: 12, color: C.muted, display: "block", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                EMAIL
+              </label>
+              <input
+                type="email"
+                value={email}
                 onChange={e => setEmail(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleResetPassword()}
-                placeholder="your@email.com"
-                style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }} 
+                placeholder="pitts_michael@hotmail.com"
+                style={{ 
+                  width: "100%", 
+                  background: "#1a1d2e", 
+                  border: `1px solid ${C.border}`, 
+                  borderRadius: 10, 
+                  padding: "14px 16px", 
+                  color: C.text, 
+                  fontSize: 16 
+                }}
               />
             </div>
 
             {localError && (
-              <div style={{ background: C.red + "15", border: `1px solid ${C.red}30`, borderRadius: 8, padding: "10px 14px", color: "#ff6b6b", fontSize: 13 }}>
+              <div style={{ background: C.red + "15", border: `1px solid ${C.red}30`, borderRadius: 8, padding: "12px 16px", color: "#ff6b6b", fontSize: 14 }}>
                 ⚠️ {localError}
               </div>
             )}
 
-            <Btn onClick={handleResetPassword} disabled={authLoading} style={{ width: "100%", padding: 14, fontSize: 14 }}>
+            <Btn 
+              onClick={handleResetPassword} 
+              disabled={authLoading || !email} 
+              style={{ width: "100%", padding: "16px", fontSize: 16, background: "linear-gradient(90deg, #22d3ee, #4ade80)" }}
+            >
               {authLoading ? "Sending..." : "Send Reset Link →"}
             </Btn>
 
-            <button 
+            <button
               onClick={onBack}
               style={{
                 width: "100%",
-                padding: 12,
-                background: "none",
+                padding: 14,
+                background: "transparent",
                 border: `1px solid ${C.border}`,
-                borderRadius: 8,
+                borderRadius: 10,
                 color: C.muted,
-                cursor: "pointer",
-                fontSize: 14
+                fontSize: 15,
+                cursor: "pointer"
               }}
             >
               Back to Sign In
@@ -3713,196 +3774,9 @@ function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError,
     </div>
   );
 }
-
 // ─────────────────────────────────────────────────────────────
 // RESET PASSWORD PAGE (shown when user clicks email reset link)
 // ─────────────────────────────────────────────────────────────
-function ResetPasswordPage({ onBack }) {
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    setError("");
-
-    // Validation
-    if (!newPassword || !confirmPassword) {
-      setError("Please fill in both password fields");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError("Passwords don't match");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // Get the token from URL - Supabase sends it in the hash
-      const fullHash = window.location.hash;
-      const hashParams = new URLSearchParams(fullHash.substring(1));
-      
-      console.log("=== PASSWORD RESET DEBUG ===");
-      console.log("Full URL:", window.location.href);
-      console.log("Full Hash:", fullHash);
-      console.log("Hash Params Keys:", Array.from(hashParams.keys()));
-      
-      // Try different ways to extract token
-      let accessToken = hashParams.get("access_token");
-      let tokenType = hashParams.get("type");
-      let errorCode = hashParams.get("error");
-      
-      console.log("access_token:", accessToken);
-      console.log("type:", tokenType);
-      console.log("error:", errorCode);
-      
-      if (!accessToken) {
-        setError("No access token found in reset link. Make sure you clicked the link in your email.");
-        setLoading(false);
-        return;
-      }
-
-      // Log token format
-      const tokenSegments = accessToken.split('.');
-      console.log("Token segments count:", tokenSegments.length, "(should be 3 for JWT)");
-      console.log("Token preview:", accessToken.substring(0, 20) + "...");
-
-      // Update password using Supabase - use the correct endpoint
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-          "apikey": SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({ password: newPassword })
-      });
-
-      const data = await res.json();
-
-      console.log("Reset response status:", res.status);
-      console.log("Reset response:", data);
-
-      if (!res.ok) {
-        console.error("Password reset error:", data);
-        throw new Error(data.error_description || data.error || data.message || "Failed to reset password");
-      }
-
-      setSuccess(true);
-      setTimeout(() => {
-        // Clear the hash from URL and redirect to login
-        window.location.href = "/";
-      }, 2000);
-    } catch (err) {
-      console.error("Reset error:", err);
-      setError(err.message || "Error resetting password. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (success) {
-    return (
-      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div style={{ width: "100%", maxWidth: 420 }}>
-          <Card>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-              <h2 style={{ color: C.text, marginBottom: 8, fontSize: 20, fontWeight: 800 }}>Password Updated!</h2>
-              <p style={{ color: C.muted, fontSize: 14, marginBottom: 20 }}>
-                Your password has been successfully reset. Redirecting to login...
-              </p>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'DM Sans', -apple-system, sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap'); * { box-sizing: border-box; margin: 0; padding: 0; } input:focus { border-color: #4f8ef7 !important; box-shadow: 0 0 0 2px rgba(79,142,247,0.15) !important; } button { font-family: inherit; }`}</style>
-      
-      <div style={{ width: "100%", maxWidth: 420 }}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ width: 56, height: 56, background: `linear-gradient(135deg, ${C.green}, ${C.blue})`, borderRadius: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 14 }}>📊</div>
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: "0.08em", color: C.text }}>Reset Password</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Enter your new password</div>
-        </div>
-
-        <Card>
-          <form onSubmit={handleResetPassword} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* New Password */}
-            <div>
-              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>New Password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                placeholder="••••••••"
-                style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
-              />
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Confirm Password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                onKeyDown={e => e.key === "Enter" && handleResetPassword(e)}
-                style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
-              />
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div style={{ background: C.red + "15", border: `1px solid ${C.red}30`, borderRadius: 8, padding: "10px 14px", color: "#ff6b6b", fontSize: 13 }}>
-                ⚠️ {error}
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <Btn type="submit" disabled={loading} style={{ width: "100%", padding: 14, fontSize: 14 }}>
-              {loading ? "Updating..." : "Reset Password →"}
-            </Btn>
-
-            {/* Back Button */}
-            <button
-              type="button"
-              onClick={onBack}
-              style={{
-                width: "100%",
-                padding: 12,
-                background: "none",
-                border: `1px solid ${C.border}`,
-                borderRadius: 8,
-                color: C.muted,
-                cursor: "pointer",
-                fontSize: 14
-              }}
-            >
-              Back to Sign In
-            </button>
-          </form>
-        </Card>
-
-        <div style={{ textAlign: "center", marginTop: 20, fontSize: 11, color: C.muted }}>
-          Your password will be securely updated in Supabase.
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────
 // LOGIN SCREEN
@@ -4183,13 +4057,16 @@ const NAV = [
 // ─────────────────────────────────────────────────────────────
 // ACCOUNT MANAGER
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// ACCOUNT MANAGER
+// ─────────────────────────────────────────────────────────────
 function AccountManager({ userId, setView, accounts, setAccounts }) {
   const [newName, setNewName] = useState("");
   const [newBroker, setNewBroker] = useState("");
   const [newType, setNewType] = useState("live");
   const [newBalance, setNewBalance] = useState(10000);
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     if (!userId) return;
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/accounts?user_id=eq.${userId}&is_active=eq.true`, {
@@ -4201,15 +4078,16 @@ function AccountManager({ userId, setView, accounts, setAccounts }) {
       console.error("Failed to fetch accounts", e);
       setAccounts([]);
     }
-  };
+  }, [userId, setAccounts]);
 
   useEffect(() => {
     fetchAccounts();
-  }, [userId]);
+  }, [fetchAccounts]);
 
   const addAccount = async () => {
     if (!newName.trim()) return alert("Account name is required");
     if (!userId) return alert("You must be logged in");
+
     try {
       const payload = {
         user_id: userId,
@@ -4218,11 +4096,13 @@ function AccountManager({ userId, setView, accounts, setAccounts }) {
         account_type: newType,
         starting_balance: parseFloat(newBalance) || 0
       };
+
       const res = await fetch(`${SUPABASE_URL}/rest/v1/accounts`, {
         method: "POST",
         headers: { ...authHeaders(), Prefer: "return=representation" },
         body: JSON.stringify(payload)
       });
+
       if (res.ok) {
         setNewName("");
         setNewBroker("");
@@ -4241,6 +4121,7 @@ function AccountManager({ userId, setView, accounts, setAccounts }) {
   const deleteAccount = async (id, name) => {
     const confirmDelete = window.confirm(`Delete account "${name}"?`);
     if (!confirmDelete) return;
+
     const deleteTradesToo = window.confirm("Also delete ALL trades linked to this account?");
     try {
       if (deleteTradesToo) {
@@ -4267,15 +4148,35 @@ function AccountManager({ userId, setView, accounts, setAccounts }) {
 
       <Card style={{ marginBottom: 24 }}>
         <h3>Add New Account</h3>
-        <input placeholder="Account Name" value={newName} onChange={e => setNewName(e.target.value)} style={{width:"100%", padding:12, marginBottom:8, background:"#1a1d2e", border:`1px solid ${C.border}`, borderRadius:8, color:C.text}} />
-        <input placeholder="Broker (optional)" value={newBroker} onChange={e => setNewBroker(e.target.value)} style={{width:"100%", padding:12, marginBottom:8, background:"#1a1d2e", border:`1px solid ${C.border}`, borderRadius:8, color:C.text}} />
-        <select value={newType} onChange={e => setNewType(e.target.value)} style={{width:"100%", padding:12, marginBottom:8, background:"#1a1d2e", border:`1px solid ${C.border}`, borderRadius:8, color:C.text}}>
+        <input 
+          placeholder="Account Name" 
+          value={newName} 
+          onChange={e => setNewName(e.target.value)} 
+          style={{width:"100%", padding:12, marginBottom:8, background:"#1a1d2e", border:`1px solid ${C.border}`, borderRadius:8, color:C.text}} 
+        />
+        <input 
+          placeholder="Broker (optional)" 
+          value={newBroker} 
+          onChange={e => setNewBroker(e.target.value)} 
+          style={{width:"100%", padding:12, marginBottom:8, background:"#1a1d2e", border:`1px solid ${C.border}`, borderRadius:8, color:C.text}} 
+        />
+        <select 
+          value={newType} 
+          onChange={e => setNewType(e.target.value)} 
+          style={{width:"100%", padding:12, marginBottom:8, background:"#1a1d2e", border:`1px solid ${C.border}`, borderRadius:8, color:C.text}}
+        >
           <option value="live">Live Account</option>
           <option value="sim">Sim Account</option>
           <option value="prop">Prop Firm</option>
           <option value="funded">Funded Account</option>
         </select>
-        <input type="number" placeholder="Starting Balance" value={newBalance} onChange={e => setNewBalance(e.target.value)} style={{width:"100%", padding:12, marginBottom:12, background:"#1a1d2e", border:`1px solid ${C.border}`, borderRadius:8, color:C.text}} />
+        <input 
+          type="number" 
+          placeholder="Starting Balance" 
+          value={newBalance} 
+          onChange={e => setNewBalance(e.target.value)} 
+          style={{width:"100%", padding:12, marginBottom:12, background:"#1a1d2e", border:`1px solid ${C.border}`, borderRadius:8, color:C.text}} 
+        />
         <Btn onClick={addAccount}>+ Add Account</Btn>
       </Card>
 
@@ -4295,7 +4196,6 @@ function AccountManager({ userId, setView, accounts, setAccounts }) {
     </div>
   );
 }
-
 // ─────────────────────────────────────────────────────────────
 // MAIN APP COMPONENT
 // ─────────────────────────────────────────────────────────────
@@ -4305,7 +4205,7 @@ function App() {
   const userId = session?.user?.id || null;
 
   // Get trades and strategies from Supabase
-  const { trades, loading, addTrade, deleteTrade, updateTrade, customStrategies, addCustomStrategy, deleteCustomStrategy, isConfigured } = useSupabase(userId);
+ const { trades, addTrade, deleteTrade, updateTrade, customStrategies, addCustomStrategy, deleteCustomStrategy, isConfigured } = useSupabase(userId);
 
   // Navigation and UI state
   const [view, setView] = useState("dashboard");
