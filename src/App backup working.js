@@ -1820,15 +1820,9 @@ const handleCSVImport = (e) => {
       onChange={e => {
         let val = e.target.value.replace(/[^0-9:.]/g, ''); // allow : and .
         // Simple auto-format
-        if (val.length >= 4 && !val.includes(':')) {
-          val = val.replace(/^(\d{2})(\d{2})/, '$1:$2');
-        }
-        if (val.length >= 7 && val.match(/\d{2}:\d{2}$/)) {
-          val = val.replace(/^(\d{2}:\d{2})(\d{2})/, '$1:$2');
-        }
-        if (val.length >= 10 && val.match(/\d{2}:\d{2}:\d{2}$/)) {
-          val = val.replace(/^(\d{2}:\d{2}:\d{2})(\d{3})/, '$1.$2');
-        }
+        val = val.replace(/(\d{2})(\d{2})/, '$1:$2');
+        val = val.replace(/(\d{2}:\d{2})(\d{2})/, '$1:$2');
+        val = val.replace(/(\d{2}:\d{2}:\d{2})(\d{3})/, '$1.$2');
         setForm(p => ({...p, entry_time: val.slice(0, 12)}));
       }}
       style={{ 
@@ -1850,16 +1844,9 @@ const handleCSVImport = (e) => {
       value={form.exit_time || ""} 
       onChange={e => {
         let val = e.target.value.replace(/[^0-9:.]/g, '');
-        // Simple auto-format
-        if (val.length >= 4 && !val.includes(':')) {
-          val = val.replace(/^(\d{2})(\d{2})/, '$1:$2');
-        }
-        if (val.length >= 7 && val.match(/\d{2}:\d{2}$/)) {
-          val = val.replace(/^(\d{2}:\d{2})(\d{2})/, '$1:$2');
-        }
-        if (val.length >= 10 && val.match(/\d{2}:\d{2}:\d{2}$/)) {
-          val = val.replace(/^(\d{2}:\d{2}:\d{2})(\d{3})/, '$1.$2');
-        }
+        val = val.replace(/(\d{2})(\d{2})/, '$1:$2');
+        val = val.replace(/(\d{2}:\d{2})(\d{2})/, '$1:$2');
+        val = val.replace(/(\d{2}:\d{2}:\d{2})(\d{3})/, '$1.$2');
         setForm(p => ({...p, exit_time: val.slice(0, 12)}));
       }}
       style={{ 

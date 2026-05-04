@@ -399,6 +399,7 @@ function useSupabase(userId) {
     }
   }, [isConfigured, uid, setTrades]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const addTrade = useCallback(async (tradeData) => {
     const newTrade = {
       ...tradeData,
@@ -431,8 +432,9 @@ function useSupabase(userId) {
 
     setTrades(prev => [newTrade, ...prev]);
     return newTrade;
-  }, [isConfigured, uid, setTrades]);
+  }, [isConfigured, uid]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const deleteTrade = useCallback(async (id) => {
     if (isConfigured && uid) {
       try {
@@ -445,8 +447,9 @@ function useSupabase(userId) {
       }
     }
     setTrades(prev => prev.filter(t => t.id !== id));
-  }, [isConfigured, uid, setTrades]);
+  }, [isConfigured, uid]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const updateTrade = useCallback(async (id, updatedData) => {
     let updatedTrade = null;
 
@@ -478,9 +481,10 @@ function useSupabase(userId) {
       }
     }
     return updatedTrade;
-  }, [isConfigured, uid, setTrades]);
+  }, [isConfigured, uid]);
 
   // Custom Strategies (similar cleanup)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const addCustomStrategy = useCallback(async (strategy) => {
     const newStrategy = {
       user_id: uid,
@@ -513,8 +517,9 @@ function useSupabase(userId) {
 
     setCustomStrategies(prev => [newStrategy, ...prev]);
     return newStrategy;
-  }, [isConfigured, uid, setCustomStrategies]);
+  }, [isConfigured, uid]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const deleteCustomStrategy = useCallback(async (id) => {
     if (isConfigured && uid) {
       try {
@@ -527,7 +532,7 @@ function useSupabase(userId) {
       }
     }
     setCustomStrategies(prev => prev.filter(s => s.id !== id));
-  }, [isConfigured, uid, setCustomStrategies]);
+  }, [isConfigured, uid]);
 
   useEffect(() => {
     if (uid) fetchTrades();

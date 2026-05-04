@@ -431,7 +431,7 @@ function useSupabase(userId) {
 
     setTrades(prev => [newTrade, ...prev]);
     return newTrade;
-  }, [isConfigured, uid, setTrades]);
+  }, [isConfigured, uid]);
 
   const deleteTrade = useCallback(async (id) => {
     if (isConfigured && uid) {
@@ -445,7 +445,7 @@ function useSupabase(userId) {
       }
     }
     setTrades(prev => prev.filter(t => t.id !== id));
-  }, [isConfigured, uid, setTrades]);
+  }, [isConfigured, uid]);
 
   const updateTrade = useCallback(async (id, updatedData) => {
     let updatedTrade = null;
@@ -478,7 +478,7 @@ function useSupabase(userId) {
       }
     }
     return updatedTrade;
-  }, [isConfigured, uid, setTrades]);
+  }, [isConfigured, uid]);
 
   // Custom Strategies (similar cleanup)
   const addCustomStrategy = useCallback(async (strategy) => {
@@ -513,7 +513,7 @@ function useSupabase(userId) {
 
     setCustomStrategies(prev => [newStrategy, ...prev]);
     return newStrategy;
-  }, [isConfigured, uid, setCustomStrategies]);
+  }, [isConfigured, uid]);
 
   const deleteCustomStrategy = useCallback(async (id) => {
     if (isConfigured && uid) {
@@ -527,7 +527,7 @@ function useSupabase(userId) {
       }
     }
     setCustomStrategies(prev => prev.filter(s => s.id !== id));
-  }, [isConfigured, uid, setCustomStrategies]);
+  }, [isConfigured, uid]);
 
   useEffect(() => {
     if (uid) fetchTrades();
