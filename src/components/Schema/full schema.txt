@@ -1,0 +1,63 @@
+full schema:
+
+CREATE TABLE IF NOT EXISTS trades (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Ownership
+  user_id UUID,
+
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+  -- Trade timing
+  trade_date DATE,
+  trade_time TIME,
+  entry_time TIME,
+  exit_time TIME,
+
+  -- Core trade data
+  symbol TEXT NOT NULL,
+  direction TEXT CHECK (direction IN ('Long', 'Short')),
+  entry_price NUMERIC,
+  exit_price NUMERIC,
+  position_size NUMERIC,
+
+  -- Risk
+  stop_loss NUMERIC,
+  take_profit NUMERIC,
+
+  -- PnL
+  pnl NUMERIC,
+  result TEXT CHECK (result IN ('Win', 'Loss', 'Breakeven')),
+
+  -- Trade quality
+  setup_type TEXT,
+  setup_valid BOOLEAN DEFAULT false,
+  trend_aligned BOOLEAN DEFAULT false,
+  risk_ok BOOLEAN DEFAULT false,
+  discipline_score INTEGER CHECK (discipline_score BETWEEN 0 AND 10),
+
+  -- Psychology (these were breaking you before)
+  mental_state TEXT,
+  emotional_intensity INTEGER CHECK (emotional_intensity BETWEEN 1 AND 3),
+  trade_behaviors TEXT[],
+
+  -- Notes / meta
+  notes TEXT,
+  ai_summary TEXT,
+  mistake_tags TEXT[],
+  improvement TEXT,
+  source TEXT,
+
+  -- Fees
+  commission NUMERIC,
+  commissions NUMERIC,
+  fees NUMERIC,
+
+  -- Status
+  is_closed BOOLEAN DEFAULT true,
+
+  -- System
+  version INTEGER DEFAULT 1
+);
