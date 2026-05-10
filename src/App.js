@@ -5325,37 +5325,30 @@ function ResetPasswordScreen({ token, onComplete, onCancel }) {
 
     setLoading(true);
     try {
-      // Exchange recovery token for session, then update password
-      const verifyRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-        method: "POST",
-        headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "recovery", token: token })
-      });
-
-      const verifyData = await verifyRes.json();
-      
-      if (!verifyRes.ok || !verifyData?.access_token) {
-        setError("Invalid or expired link. Request a new reset.");
-        setLoading(false);
-        return;
-      }
-
-      // Update password with the session token
-      const updateRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      // Try direct password update with token as Bearer
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
         method: "PUT",
-        headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json", Authorization: `Bearer ${verifyData.access_token}` },
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ password: newPassword })
       });
 
-      if (updateRes.ok) {
+      console.log("Password update response:", res.status);
+      const data = await res.json();
+      console.log("Response data:", data);
+
+      if (res.ok) {
         setSuccess(true);
         setTimeout(() => onComplete && onComplete(), 2000);
       } else {
-        const updateData = await updateRes.json();
-        setError(updateData?.error_description || "Failed to update password.");
+        setError(data?.error_description || data?.message || "Failed to reset password");
       }
     } catch (e) {
-      setError("Connection error.");
+      console.log("Error:", e);
+      setError("Connection error: " + e.message);
     } finally {
       setLoading(false);
     }
