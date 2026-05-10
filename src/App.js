@@ -5298,6 +5298,151 @@ function TradeLog({
 
 
 // ─────────────────────────────────────────────────────────────
+// RESET PASSWORD SCREEN (shown when user clicks email reset link)
+// ─────────────────────────────────────────────────────────────
+function ResetPasswordScreen({ token, onComplete, onCancel }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleReset = async () => {
+    setError("");
+    if (!newPassword || !confirmPassword) {
+      setError("Please fill in both password fields.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: token,
+          type: "recovery",
+          password: newPassword
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok || data?.access_token) {
+        setSuccess(true);
+        setTimeout(() => onComplete && onComplete(), 2000);
+      } else {
+        setError(data?.error_description || data?.error || "Failed to reset password. Try again.");
+      }
+    } catch (e) {
+      setError("Connection error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div style={{ width: "100%", maxWidth: 420 }}>
+          <Card>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+              <h2 style={{ color: C.text, marginBottom: 8, fontSize: 20, fontWeight: 800 }}>Password Reset!</h2>
+              <p style={{ color: C.muted, fontSize: 14 }}>Your password has been successfully updated.</p>
+              <p style={{ color: C.sub, fontSize: 12, marginTop: 16 }}>Redirecting to sign in...</p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 420 }}>
+        <Card>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>🔐</div>
+            <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text, margin: 0 }}>Reset Your Password</h2>
+            <p style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>Enter your new password below</p>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>New Password</label>
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  onKeyDown={e => e.key === "Enter" && handleReset()}
+                  style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}
+                >
+                  {showPassword ? "🙈" : "👁️"}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Confirm Password</label>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                onKeyDown={e => e.key === "Enter" && handleReset()}
+                style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+
+            {error && (
+              <div style={{ background: C.red + "15", border: `1px solid ${C.red}30`, borderRadius: 8, padding: "10px 14px", color: "#ff6b6b", fontSize: 13 }}>
+                ⚠️ {error}
+              </div>
+            )}
+
+            <Btn onClick={handleReset} disabled={loading} style={{ width: "100%", padding: 14 }}>
+              {loading ? "Resetting..." : "Reset Password →"}
+            </Btn>
+
+            <button
+              onClick={onCancel}
+              style={{
+                width: "100%",
+                padding: 10,
+                background: "none",
+                border: "none",
+                color: C.muted,
+                cursor: "pointer",
+                fontSize: 13,
+                textDecoration: "underline"
+              }}
+            >
+              Back to Sign In
+            </button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // PASSWORD RESET FORM (Forgot Password Flow)
 // ─────────────────────────────────────────────────────────────
 function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError, authLoading }) {
