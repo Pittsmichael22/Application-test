@@ -5325,30 +5325,28 @@ function ResetPasswordScreen({ token, onComplete, onCancel }) {
 
     setLoading(true);
     try {
-      // Try direct password update with token as Bearer
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      // Supabase recovery: use the token directly with /auth/v1/user endpoint
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${token}`
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({ password: newPassword })
+        body: JSON.stringify({
+          password: newPassword
+        })
       });
 
-      console.log("Password update response:", res.status);
-      const data = await res.json();
-      console.log("Response data:", data);
-
-      if (res.ok) {
+      if (response.ok) {
         setSuccess(true);
         setTimeout(() => onComplete && onComplete(), 2000);
       } else {
-        setError(data?.error_description || data?.message || "Failed to reset password");
+        const errorData = await response.json();
+        setError(errorData?.error_description || errorData?.error || "Failed to reset password");
       }
     } catch (e) {
-      console.log("Error:", e);
-      setError("Connection error: " + e.message);
+      setError("Error: " + e.message);
     } finally {
       setLoading(false);
     }
