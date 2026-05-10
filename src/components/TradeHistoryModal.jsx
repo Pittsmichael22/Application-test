@@ -37,6 +37,7 @@ export function TradeHistoryModal({
   }, [trade]);
 
   // Auto-recalculate P&L whenever price, size, fees or commissions change in edit mode
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!editedForm || !isEditMode) return;
     const entry   = parseFloat(editedForm.entry_price);

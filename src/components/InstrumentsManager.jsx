@@ -22,6 +22,7 @@ function InstrumentsManager({ currentAccountId, supabase, userId }) {
 
 // eslint-disable-next-line react-hooks/exhaustive-deps
   // Fetch instruments and current account settings
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!currentAccountId || !userId) return;
     fetchInstruments();
