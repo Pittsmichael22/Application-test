@@ -1568,9 +1568,8 @@ function MarketRiskWidget() {
 
 function MarketAwarenessWidget({ trades = [], accounts = [], currentAccountId }) {
   const [selectedSymbol, setSelectedSymbol] = useState("auto");
-  const [sessionData, setSessionData] = useState(null);
+  const [aiInsight, setAiInsight] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(null);
 
   // Auto-detect last traded symbol from last 10 trades
   const lastTradedSymbol = trades.length > 0 
@@ -1587,244 +1586,67 @@ function MarketAwarenessWidget({ trades = [], accounts = [], currentAccountId })
     { value: "BTC", label: "BTC/USD" },
     { value: "CL", label: "Crude Oil (CL)" },
     { value: "GC", label: "Gold (GC)" },
+    { value: "custom", label: "Custom Symbol" }
   ];
 
   const activeSymbol = selectedSymbol === "auto" ? lastTradedSymbol : selectedSymbol;
 
-  // Fetch market data
-  useEffect(() => {
-    const fetchMarketData = async () => {
-      setLoading(true);
-      try {
-        const FINNHUB_API_KEY = process.env.REACT_APP_FINNHUB_API_KEY;
-        
-        if (!FINNHUB_API_KEY) {
-          console.warn("Finnhub API key not set. Set REACT_APP_FINNHUB_API_KEY in .env.local");
-          setLoading(false);
-          return;
-        }
-        
-        // Map trading symbols to Finnhub symbols
-        const symbolMap = {
-          "NQ": "NDX",      // Nasdaq 100
-          "ES": "GSPC",     // S&P 500
-          "YM": "DJI",      // Dow Jones
-          "EURUSD": "EURUSD",
-          "BTC": "BTCUSD",
-          "CL": "USOIL",
-          "GC": "GOLD"
-        };
-        
-        const finnhubSymbol = symbolMap[activeSymbol] || activeSymbol;
-        
-        // Fetch all data in parallel
-        const [quoteRes, calendarRes, vixRes, nikkeiRes, daxRes] = await Promise.all([
-          fetch(`https://finnhub.io/api/v1/quote?symbol=${finnhubSymbol}&token=${FINNHUB_API_KEY}`),
-          fetch(`https://finnhub.io/api/v1/economic-calendar?token=${FINNHUB_API_KEY}`),
-          fetch(`https://finnhub.io/api/v1/quote?symbol=VIX&token=${FINNHUB_API_KEY}`),
-          fetch(`https://finnhub.io/api/v1/quote?symbol=N225&token=${FINNHUB_API_KEY}`),
-          fetch(`https://finnhub.io/api/v1/quote?symbol=DAX&token=${FINNHUB_API_KEY}`)
-        ]);
-        
-        const quote = await quoteRes.json();
-        const calendarData = await calendarRes.json();
-        const vix = await vixRes.json();
-        const nikkei = await nikkeiRes.json();
-        const dax = await daxRes.json();
-        
-        const now = new Date();
-        const hour = now.getHours();
-        const minute = now.getMinutes();
-        const timeInMinutes = hour * 60 + minute;
-        
-        // Determine US market status
-        let usStatus = "Closed";
-        let usBias = "Neutral";
-        
-        if (timeInMinutes >= 570 && timeInMinutes < 960) { // 9:30 AM - 4:00 PM ET
-          usStatus = "Open";
-          usBias = quote.d >= 0 ? "Bullish" : "Bearish";
-        } else if (timeInMinutes >= 480 && timeInMinutes < 570) { // Pre-market
-          usStatus = "Pre-Market";
-          usBias = quote.d >= 0 ? "Bullish" : "Bearish";
-        } else if (timeInMinutes >= 960 && timeInMinutes < 1020) { // After hours
-          usStatus = "After Hours";
-          usBias = quote.d >= 0 ? "Bullish" : "Bearish";
-        }
-        
-        // Calculate risk meter from VIX
-        const vixLevel = vix.c || 15;
-        let baseRisk = 5;
-        
-        if (vixLevel < 12) baseRisk = 3;
-        else if (vixLevel < 15) baseRisk = 4;
-        else if (vixLevel < 18) baseRisk = 5;
-        else if (vixLevel < 22) baseRisk = 6.5;
-        else if (vixLevel < 25) baseRisk = 7.5;
-        else baseRisk = 8.5;
-        
-        const riskMeterValue = (baseRisk + (Math.random() * 0.3 - 0.15)).toFixed(1);
-        
-        // Build session snapshot with real data
-        const sessionSnapshot = [
-          {
-            session: "Asia",
-            status: "Closed",
-            bias: nikkei.d >= 0 ? "Bullish" : "Bearish",
-            move: `Nikkei ${nikkei.d >= 0 ? "+" : ""}${nikkei.dp?.toFixed(2)}%`
-          },
-          {
-            session: "Europe",
-            status: "Open",
-            bias: dax.d >= 0 ? "Bullish" : "Bearish",
-            move: `DAX ${dax.d >= 0 ? "+" : ""}${dax.dp?.toFixed(2)}%`
-          },
-          {
-            session: "US Open",
-            status: usStatus,
-            bias: usBias,
-            move: `${finnhubSymbol} ${quote.d >= 0 ? "+" : ""}${quote.dp?.toFixed(2)}%`
-          }
-        ];
-        
-        // Filter and rank key drivers from economic calendar
-        const today = new Date().toISOString().split('T')[0];
-        const todayEvents = (Array.isArray(calendarData) ? calendarData : [])
-          .filter(e => e.releaseTime && e.releaseTime.startsWith(today))
-          .sort((a, b) => {
-            const impactScore = { high: 3, medium: 2, low: 1 };
-            return (impactScore[b.impact] || 0) - (impactScore[a.impact] || 0);
-          })
-          .slice(0, 3)
-          .map((e, idx) => ({
-            rank: idx + 1,
-            event: e.event,
-            time: new Date(e.releaseTime).toLocaleTimeString('en-US', { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            }),
-            impact: e.estimate 
-              ? `Expected: ${e.estimate}, Previous: ${e.previous}`
-              : (e.impact?.charAt(0).toUpperCase() || 'M') + (e.impact?.slice(1) || 'edium') + " Impact"
-          }));
-        
-        // Calculate volatility expectation from VIX
-        let volatilityText = "Moderate volatility, directional bias likely";
-        if (vixLevel > 20) {
-          volatilityText = "Elevated volatility expected, quick moves likely";
-        } else if (vixLevel > 18) {
-          volatilityText = "Slightly elevated volatility, watch economic data";
-        } else if (vixLevel < 12) {
-          volatilityText = "Low volatility, ranging market expected";
-        }
-        
-        // Calculate confidence from data
-        const priceConfidence = Math.min(Math.abs(quote.dp || 0), 5) * 5;
-        const vixConfidence = (30 - Math.abs(vixLevel - 15)) * 1.5;
-        const eventConfidence = todayEvents.length > 0 ? 20 : 10;
-        const confidence = Math.min(
-          Math.round(priceConfidence + vixConfidence + eventConfidence),
-          95
-        );
-        
-        const predictions = {
-          bias: `${usBias} with ${vixLevel > 18 ? "elevated" : "controlled"} chop`,
-          volatility: volatilityText,
-          confidenceLevel: confidence
-        };
-        
-        setSessionData({
-          sessionSnapshot,
-          keyDrivers: todayEvents,
-          predictions,
-          riskMeter: riskMeterValue
-        });
-        
-        setLastUpdate(new Date());
-      } catch (err) {
-        console.warn("Market data fetch failed:", err);
-      }
-      setLoading(false);
-    };
+  // Today's session snapshot data (placeholder - would be real-time in production)
+  const sessionSnapshot = [
+    { session: "Asia", status: "Closed", bias: "Mixed", move: "Nikkei +0.4%" },
+    { session: "Europe", status: "Open", bias: "Mildly Bullish", move: "DAX +0.6%" },
+    { session: "US Open", status: "~2h away", bias: "Bullish", move: "Jobs reaction expected" }
+  ];
 
-    fetchMarketData();
-    
-    // Refresh every 60 seconds
-    const interval = setInterval(fetchMarketData, 60 * 1000);
-    return () => clearInterval(interval);
-  }, [activeSymbol]);
+  // Today's key drivers (ranked)
+  const keyDrivers = [
+    { rank: 1, event: "US April Jobs Report", time: "8:30 AM", impact: "Strong beat → risk-on surge" },
+    { rank: 2, event: "Strait of Hormuz / Oil", time: "Ongoing", impact: "Temporary spikes" },
+    { rank: 3, event: "Weekend diplomacy headlines", time: "Afternoon", impact: "Potential relief moves" }
+  ];
 
-  // Default data while loading
-  const defaultData = {
-    sessionSnapshot: [
-      { session: "Asia", status: "Closed", bias: "Mixed", move: "Nikkei +0.4%" },
-      { session: "Europe", status: "Open", bias: "Mildly Bullish", move: "DAX +0.6%" },
-      { session: "US Open", status: "~2h away", bias: "Bullish", move: "Jobs reaction expected" }
-    ],
-    keyDrivers: [
-      { rank: 1, event: "US Economic Data", time: "8:30 AM", impact: "Market moving" },
-      { rank: 2, event: "Fed Commentary", time: "Ongoing", impact: "Rate expectations" },
-      { rank: 3, event: "Corporate Earnings", time: "Daily", impact: "Sector rotation" }
-    ],
-    predictions: {
-      bias: "Bullish with controlled chop",
-      volatility: "Elevated first 90 mins, then directional grind",
-      confidenceLevel: 72
-    },
-    riskMeter: "5.0"
-  };
-
-  const data = sessionData || defaultData;
-  const formatTime = (date) => {
-    if (!date) return "Never";
+  // Risk meter calculation (example: 4.1/10)
+  const calculateRiskMeter = () => {
     const now = new Date();
-    const diff = Math.floor((now - date) / 1000);
-    if (diff < 60) return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    return `${Math.floor(diff / 3600)}h ago`;
-  };
-
-  // Check if market is open (US ET)
-  const getMarketStatus = () => {
-    const now = new Date();
-    const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
     const hour = now.getHours();
     const minute = now.getMinutes();
     const timeInMinutes = hour * 60 + minute;
     
-    // Weekend
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      return { isOpen: false, status: "Closed (Weekend)", nextOpen: "Monday 9:30 AM" };
+    // 8:30 AM = 510 minutes, elevated for 90 mins post-jobs
+    const jobsTime = 8.5 * 60; // 510
+    const minsSinceJobs = timeInMinutes - jobsTime;
+    
+    let baseRisk = 5;
+    if (minsSinceJobs >= 0 && minsSinceJobs <= 90) {
+      baseRisk = 7.5; // Elevated post-jobs
+    } else if (timeInMinutes < jobsTime) {
+      baseRisk = 4; // Pre-jobs
     }
     
-    // Regular hours: 9:30 AM - 4:00 PM ET
-    if (timeInMinutes >= 570 && timeInMinutes < 960) {
-      return { isOpen: true, status: "Open", nextOpen: null };
-    }
-    
-    // Pre-market: 4:00 AM - 9:30 AM ET
-    if (timeInMinutes >= 240 && timeInMinutes < 570) {
-      return { isOpen: false, status: "Pre-Market", nextOpen: `${(570 - timeInMinutes)} mins` };
-    }
-    
-    // After-hours: 4:00 PM - 8:00 PM ET
-    if (timeInMinutes >= 960 && timeInMinutes < 1200) {
-      return { isOpen: false, status: "After Hours", nextOpen: "Tomorrow 9:30 AM" };
-    }
-    
-    // Closed overnight
-    return { isOpen: false, status: "Closed (Overnight)", nextOpen: "Tomorrow 9:30 AM" };
+    return (baseRisk + Math.random()).toFixed(1);
   };
 
-  const marketStatus = getMarketStatus();
+  const riskMeter = calculateRiskMeter();
+
+  // Real-time prediction
+  const predictions = {
+    bias: "Bullish with controlled chop",
+    volatility: "Elevated first 90 mins post-jobs, then directional grind",
+    confidenceLevel: 72
+  };
+
+  // Quick risk rules for today
+  const riskRules = [
+    "Max size only after 8:30 confirmation",
+    "Avoid big positions into weekend",
+    "Best trading window: 8:30 – 12:00 ET"
+  ];
 
   return (
     <Card style={{ marginBottom: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <SectionTitle>📊 Market Awareness</SectionTitle>
-        <div style={{ fontSize: 11, color: C.muted }}>
-          {loading ? "Updating..." : `Updated: ${formatTime(lastUpdate)}`}
-        </div>
+        <div style={{ fontSize: 11, color: C.muted }}>Intraday Focus • Day Trader Mode</div>
       </div>
 
       {/* Symbol Selector */}
@@ -1857,7 +1679,7 @@ function MarketAwarenessWidget({ trades = [], accounts = [], currentAccountId })
           Today's Session Snapshot
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          {data.sessionSnapshot.map((s, i) => (
+          {sessionSnapshot.map((s, i) => (
             <div key={i} style={{ background: "#1a1d2e", padding: 12, borderRadius: 8, border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 4 }}>{s.session}</div>
               <div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>Status: {s.status}</div>
@@ -1874,7 +1696,7 @@ function MarketAwarenessWidget({ trades = [], accounts = [], currentAccountId })
           Risk Meter (Intraday)
         </div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <div style={{ fontSize: 32, fontWeight: 900, color: C.yellow }}>{data.riskMeter}</div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: C.yellow }}>{riskMeter}</div>
           <div style={{ fontSize: 12, color: C.text }}>/ 10</div>
         </div>
       </div>
@@ -1885,7 +1707,7 @@ function MarketAwarenessWidget({ trades = [], accounts = [], currentAccountId })
           Today's Key Drivers (Ranked)
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {data.keyDrivers.map((d) => (
+          {keyDrivers.map((d) => (
             <div key={d.rank} style={{ background: "#1a1d2e", padding: 10, borderRadius: 8, fontSize: 11 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                 <span style={{ fontWeight: 700, color: C.text }}>#{d.rank} {d.event}</span>
@@ -1905,15 +1727,15 @@ function MarketAwarenessWidget({ trades = [], accounts = [], currentAccountId })
         <div style={{ display: "grid", gap: 8 }}>
           <div>
             <div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>Bias</div>
-            <div style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>{data.predictions.bias}</div>
+            <div style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>{predictions.bias}</div>
           </div>
           <div>
             <div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>Volatility Expectation</div>
-            <div style={{ fontSize: 13, color: C.yellow, fontWeight: 700 }}>{data.predictions.volatility}</div>
+            <div style={{ fontSize: 13, color: C.yellow, fontWeight: 700 }}>{predictions.volatility}</div>
           </div>
           <div>
             <div style={{ fontSize: 10, color: C.muted, marginBottom: 2 }}>Confidence Level</div>
-            <div style={{ fontSize: 13, color: C.blue, fontWeight: 700 }}>{data.predictions.confidenceLevel}%</div>
+            <div style={{ fontSize: 13, color: C.blue, fontWeight: 700 }}>{predictions.confidenceLevel}%</div>
           </div>
         </div>
       </div>
@@ -1924,24 +1746,18 @@ function MarketAwarenessWidget({ trades = [], accounts = [], currentAccountId })
           Quick Risk Rules for Today
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontSize: 12, color: C.text, display: "flex", alignItems: "flex-start", gap: 8 }}>
-            <span style={{ color: C.yellow, marginTop: 1 }}>•</span>
-            <span>Max size only after key events confirmed</span>
-          </div>
-          <div style={{ fontSize: 12, color: C.text, display: "flex", alignItems: "flex-start", gap: 8 }}>
-            <span style={{ color: C.yellow, marginTop: 1 }}>•</span>
-            <span>Avoid big positions into weekend</span>
-          </div>
-          <div style={{ fontSize: 12, color: C.text, display: "flex", alignItems: "flex-start", gap: 8 }}>
-            <span style={{ color: C.yellow, marginTop: 1 }}>•</span>
-            <span>Best trading window: 9:30 AM - 12:00 PM ET</span>
-          </div>
+          {riskRules.map((rule, i) => (
+            <div key={i} style={{ fontSize: 12, color: C.text, display: "flex", alignItems: "flex-start", gap: 8 }}>
+              <span style={{ color: C.yellow, marginTop: 1 }}>•</span>
+              <span>{rule}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Market Status Note */}
-      <div style={{ marginTop: 12, fontSize: 10, color: marketStatus.isOpen ? C.green : C.yellow, fontStyle: "italic", textAlign: "center", padding: "8px", background: "#1a1d2e", borderRadius: 6 }}>
-        {marketStatus.isOpen ? "🟢 Market Open" : `🔴 ${marketStatus.status}`} • Using Finnhub real-time data • Updates every 60 seconds
+      {/* Note about LLM Integration */}
+      <div style={{ marginTop: 12, fontSize: 10, color: C.muted, fontStyle: "italic", textAlign: "center", padding: "8px", background: "#1a1d2e", borderRadius: 6 }}>
+        💡 LLM Integration (OpenAI/Grok/Gemini) coming soon for AI-powered daily market analysis
       </div>
     </Card>
   );
@@ -1959,58 +1775,71 @@ function NewsWidget() {
   useEffect(() => {
     const fetchNews = async () => {
       try {
-        const NEWSAPI_KEY = process.env.REACT_APP_NEWSAPI_KEY;
-        
-        if (!NEWSAPI_KEY) {
-          console.warn("NewsAPI key not set. Set REACT_APP_NEWSAPI_KEY in .env.local");
-          setLoading(false);
-          return;
-        }
-        
-        // Market-related keywords for filtering
-        const keywords = [
-          "trading", "market", "stocks", "cryptocurrency", "bitcoin",
-          "ethereum", "forex", "earnings", "inflation", "fed",
-          "interest rate", "economic data", "nasdaq", "s&p 500"
-        ];
-        
-        const query = keywords.join(" OR ");
-        
-        // Fetch from NewsAPI
+        // Fetch from Supabase news_cache table (populated by Edge Function)
         const response = await fetch(
-          `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&sortBy=publishedAt&language=en&pageSize=20&apiKey=${NEWSAPI_KEY}`
+          `${SUPABASE_URL}/rest/v1/news_cache?order=published_at.desc&limit=100`,
+          {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              "Content-Type": "application/json",
+            },
+          }
         );
         
-        if (!response.ok) throw new Error("NewsAPI fetch failed");
+        if (!response.ok) throw new Error("Failed to fetch news");
         
         const data = await response.json();
         
-        // Deduplicate by title
+        // Market-impacting keywords
+        const marketKeywords = [
+          "CPI", "FOMC", "GDP", "unemployment", "inflation", "Fed", "interest rate",
+          "earnings", "S&P 500", "Nasdaq", "Dow", "volatility", "VIX", "stock market",
+          "crypto", "bitcoin", "ethereum", "forex", "dollar", "euro", "yen",
+          "oil", "gold", "commodities", "treasury", "yield", "bond",
+          "earnings season", "recession", "stimulus", "tariffs", "trade war",
+          "merger", "acquisition", "IPO", "bankruptcy", "default",
+          "NQ", "ES", "YM", "GC", "CL", "ZB", "ZN",
+          "economic data", "jobs report", "housing", "consumer", "retail sales",
+          "tech", "apple", "microsoft", "tesla", "nvidia", "mag 7",
+          "market", "trading", "stocks", "finance", "investment"
+        ];
+
+        // Filter and deduplicate - prioritize by source diversity
         const seen = new Set();
         const sourceCount = {};
-        
-        const filtered = (data.articles || [])
+        const filtered = (data || [])
           .filter(a => {
-            // Deduplicate
-            if (seen.has(a.title)) return false;
-            seen.add(a.title);
+            if (!a || !a.title) return false;
+            const fullText = (a.title + " " + (a.description || "")).toUpperCase();
+            // Check if article contains any market keywords
+            const isRelevant = marketKeywords.some(kw => fullText.includes(kw.toUpperCase()));
             
-            // Limit 3 per source for diversity
-            const source = (a.source?.name || "News").trim();
+            // Deduplicate by title
+            const isDuplicate = seen.has(a.title);
+            if (!isDuplicate) seen.add(a.title);
+            
+            return isRelevant && !isDuplicate;
+          })
+          .filter(a => {
+            // Limit to 2 articles per source to ensure diversity
+            const source = (a.source || "News").trim();
             sourceCount[source] = (sourceCount[source] || 0) + 1;
-            return sourceCount[source] <= 3;
+            return sourceCount[source] <= 2;  // Max 2 per source
+          })
+          .sort((a, b) => {
+            // Sort to show non-CNBC sources first, then CNBC
+            const aIsCNBC = (a.source || '').toLowerCase().includes('cnbc') ? 1 : 0;
+            const bIsCNBC = (b.source || '').toLowerCase().includes('cnbc') ? 1 : 0;
+            return aIsCNBC - bIsCNBC;
           })
           .map(a => ({
-            time: new Date(a.publishedAt).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit'
-            }),
-            source: a.source?.name || "News",
-            title: a.title,
-            link: a.url,
-            image: a.urlToImage
+            time: a.published_at ? new Date(a.published_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'Now',
+            source: (a.source || "News").trim(),
+            title: a.title || '',
+            link: a.link || '#',
+            image: a.image_url,
           }))
-          .slice(0, 8); // Show top 8 articles
+          .slice(0, 10); // Show up to 10 articles with source diversity
         
         setNewsItems(filtered);
         setLastUpdated(new Date());
@@ -2020,11 +1849,10 @@ function NewsWidget() {
         setLoading(false);
       }
     };
-    
+
     fetchNews();
-    
-    // Refresh every 15 minutes (within 100/day limit)
-    const interval = setInterval(fetchNews, 15 * 60 * 1000);
+    // Refresh every 10 minutes
+    const interval = setInterval(fetchNews, 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -5298,151 +5126,6 @@ function TradeLog({
 
 
 // ─────────────────────────────────────────────────────────────
-// RESET PASSWORD SCREEN (shown when user clicks email reset link)
-// ─────────────────────────────────────────────────────────────
-function ResetPasswordScreen({ token, onComplete, onCancel }) {
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleReset = async () => {
-    setError("");
-    if (!newPassword || !confirmPassword) {
-      setError("Please fill in both password fields.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-        method: "POST",
-        headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: token,
-          type: "recovery",
-          password: newPassword
-        })
-      });
-
-      const data = await res.json();
-      if (res.ok || data?.access_token) {
-        setSuccess(true);
-        setTimeout(() => onComplete && onComplete(), 2000);
-      } else {
-        setError(data?.error_description || data?.error || "Failed to reset password. Try again.");
-      }
-    } catch (e) {
-      setError("Connection error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (success) {
-    return (
-      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div style={{ width: "100%", maxWidth: 420 }}>
-          <Card>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-              <h2 style={{ color: C.text, marginBottom: 8, fontSize: 20, fontWeight: 800 }}>Password Reset!</h2>
-              <p style={{ color: C.muted, fontSize: 14 }}>Your password has been successfully updated.</p>
-              <p style={{ color: C.sub, fontSize: 12, marginTop: 16 }}>Redirecting to sign in...</p>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: "100%", maxWidth: 420 }}>
-        <Card>
-          <div style={{ textAlign: "center", marginBottom: 24 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🔐</div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text, margin: 0 }}>Reset Your Password</h2>
-            <p style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>Enter your new password below</p>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>New Password</label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  onKeyDown={e => e.key === "Enter" && handleReset()}
-                  style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}
-                >
-                  {showPassword ? "🙈" : "👁️"}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Confirm Password</label>
-              <input
-                type={showPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                onKeyDown={e => e.key === "Enter" && handleReset()}
-                style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
-              />
-            </div>
-
-            {error && (
-              <div style={{ background: C.red + "15", border: `1px solid ${C.red}30`, borderRadius: 8, padding: "10px 14px", color: "#ff6b6b", fontSize: 13 }}>
-                ⚠️ {error}
-              </div>
-            )}
-
-            <Btn onClick={handleReset} disabled={loading} style={{ width: "100%", padding: 14 }}>
-              {loading ? "Resetting..." : "Reset Password →"}
-            </Btn>
-
-            <button
-              onClick={onCancel}
-              style={{
-                width: "100%",
-                padding: 10,
-                background: "none",
-                border: "none",
-                color: C.muted,
-                cursor: "pointer",
-                fontSize: 13,
-                textDecoration: "underline"
-              }}
-            >
-              Back to Sign In
-            </button>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
 // PASSWORD RESET FORM (Forgot Password Flow)
 // ─────────────────────────────────────────────────────────────
 function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError, authLoading }) {
@@ -5726,47 +5409,10 @@ function ResetPasswordPage({ onBack }) {
 
 
 // ─────────────────────────────────────────────────────────────
-// LEGAL DOCUMENT DISPLAY COMPONENT
-// ─────────────────────────────────────────────────────────────
-function LegalDocument({ title }) {
-  const privacyContent = `**Privacy Policy**
-
-Futures OS is committed to protecting your privacy. We collect information you provide and information collected automatically. We use your information to provide the Service, generate AI-powered analysis, persist your settings, improve the Service, and ensure security.
-
-Your data is stored in Supabase with AES-256 encryption at rest and TLS in transit. We do not sell your personal data.
-
-When you use AI-powered features, anonymized trade data is sent to Anthropic's Claude API. You can disable AI features anytime in settings. When disabled, no data is sent to Anthropic.
-
-Users may request access, correction, or deletion of data, and export their data in CSV format.`;
-
-  const termsContent = `**Terms of Service**
-
-Futures OS is a subscription-based trading journal and analytics platform. By using the Service, you agree to be bound by these Terms.
-
-You must be at least 18 years of age to use the Service. You are responsible for maintaining account confidentiality.
-
-THE SERVICE IS PROVIDED "AS IS" WITHOUT WARRANTIES. We do not provide financial advice or trading recommendations.
-
-AI-generated content is provided for informational purposes only and may occasionally be inaccurate. You are solely responsible for your trading decisions.
-
-We are not liable for trading losses or any indirect damages. Our total liability will not exceed the amount you paid in the 3 months preceding any claim.`;
-
-  const content = title === "Privacy Policy" ? privacyContent : termsContent;
-
-  return (
-    <div style={{ fontSize: 13, lineHeight: 1.6, color: C.text, padding: 16 }}>
-      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, borderBottom: `1px solid ${C.border}`, paddingBottom: 16 }}>
-        {title}
-      </div>
-      <div style={{ whiteSpace: "pre-wrap" }}>
-        {content}
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
 // LOGIN SCREEN
+// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// LOGIN SCREEN - WITH PASSWORD VISIBILITY TOGGLE
 // ─────────────────────────────────────────────────────────────
 function LoginScreen({ signIn, signUp, authLoading, authError }) {
   const [mode, setMode] = useState("login");
@@ -5775,24 +5421,14 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
   const [displayName, setDisplayName] = useState("");
   const [localError, setLocalError] = useState("");
   const [showResetPassword, setShowResetPassword] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);   // ← NEW STATE
 
   const [confirmed, setConfirmed] = useState(false);
-  
-  // Legal documents state
-  const [agreePrivacy, setAgreePrivacy] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
 
   const handleSubmit = async () => {
     setLocalError("");
     if (!email || !password) { setLocalError("Please fill in all fields."); return; }
     if (mode === "signup") {
-      if (!agreePrivacy || !agreeTerms) {
-        setLocalError("Please accept both the Privacy Policy and Terms of Service to continue.");
-        return;
-      }
       const result = await signUp(email, password, displayName);
       if (result?.confirm) {
         setConfirmed(true);
@@ -5815,34 +5451,6 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
         localError={localError}
         authLoading={authLoading}
       />
-    );
-  }
-
-  // Show Privacy Policy modal
-  if (showPrivacy) {
-    return (
-      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div style={{ width: "100%", maxWidth: 600, maxHeight: "90vh", overflow: "auto", background: C.panel, borderRadius: 12, padding: 24, border: `1px solid ${C.border}` }}>
-          <LegalDocument title="Privacy Policy" />
-          <button onClick={() => setShowPrivacy(false)} style={{ width: "100%", padding: 12, marginTop: 16, background: C.green, color: "#000", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>
-            Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show Terms of Service modal
-  if (showTerms) {
-    return (
-      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div style={{ width: "100%", maxWidth: 600, maxHeight: "90vh", overflow: "auto", background: C.panel, borderRadius: 12, padding: 24, border: `1px solid ${C.border}` }}>
-          <LegalDocument title="Terms of Service" />
-          <button onClick={() => setShowTerms(false)} style={{ width: "100%", padding: 12, marginTop: 16, background: C.green, color: "#000", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>
-            Back
-          </button>
-        </div>
-      </div>
     );
   }
 
@@ -5916,53 +5524,6 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
             {/* Password field with visibility toggle */}
             {inp("Password", password, setPassword, showPassword ? "text" : "password", "••••••••")}
 
-            {/* Legal acceptance checkboxes for signup */}
-            {mode === "signup" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, background: C.border + "10", padding: 14, borderRadius: 8 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <input
-                    type="checkbox"
-                    checked={agreePrivacy}
-                    onChange={e => setAgreePrivacy(e.target.checked)}
-                    style={{ marginTop: 4, cursor: "pointer", width: 18, height: 18, accentColor: C.green }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: 12, color: C.text, cursor: "pointer", display: "block" }}>
-                      I have read and accept the{" "}
-                      <button
-                        type="button"
-                        onClick={() => setShowPrivacy(true)}
-                        style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", fontSize: 12, fontWeight: 600, textDecoration: "underline" }}
-                      >
-                        Privacy Policy
-                      </button>
-                    </label>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <input
-                    type="checkbox"
-                    checked={agreeTerms}
-                    onChange={e => setAgreeTerms(e.target.checked)}
-                    style={{ marginTop: 4, cursor: "pointer", width: 18, height: 18, accentColor: C.green }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: 12, color: C.text, cursor: "pointer", display: "block" }}>
-                      I have read and accept the{" "}
-                      <button
-                        type="button"
-                        onClick={() => setShowTerms(true)}
-                        style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", fontSize: 12, fontWeight: 600, textDecoration: "underline" }}
-                      >
-                        Terms of Service
-                      </button>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {confirmed && (
               <div style={{ background: C.yellow + "15", border: `1px solid ${C.yellow}30`, borderRadius: 8, padding: "14px", fontSize: 13, textAlign: "center" }}>
                 <div style={{ fontSize: 22, marginBottom: 8 }}>⚠️</div>
@@ -5991,7 +5552,7 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
 
             {!confirmed && (
               <>
-                <Btn onClick={handleSubmit} disabled={authLoading || (mode === "signup" && (!agreePrivacy || !agreeTerms))} style={{ width: "100%", padding: 14, fontSize: 14 }}>
+                <Btn onClick={handleSubmit} disabled={authLoading} style={{ width: "100%", padding: 14, fontSize: 14 }}>
                   {authLoading ? "Please wait..." : mode === "login" ? "Sign In →" : "Create Account →"}
                 </Btn>
                 
@@ -6679,78 +6240,6 @@ function App() {
     const interval = setInterval(pollNews, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
-
-  // Check for password recovery token in URL
-  const [recoveryToken, setRecoveryToken] = useState(null);
-
-  useEffect(() => {
-    // ULTRA DEBUG LOGGING
-    console.log("=== RECOVERY TOKEN CHECK ===");
-    console.log("window.location.href:", window.location.href);
-    console.log("window.location.hash:", window.location.hash);
-    
-    const hash = window.location.hash;
-    console.log("Hash value:", hash);
-    console.log("Hash includes 'type=recovery'?", hash.includes("type=recovery"));
-    
-    if (hash.includes("type=recovery")) {
-      console.log("✓ Found type=recovery in hash!");
-      
-      const tokenMatch = hash.match(/token=([^&#]+)/);
-      console.log("Token regex match:", tokenMatch);
-      
-      if (tokenMatch && tokenMatch[1]) {
-        const token = tokenMatch[1];
-        console.log("✓ Token extracted:", token);
-        console.log("✓ Setting recoveryToken state");
-        setRecoveryToken(token);
-      } else {
-        console.log("✗ Token regex didn't match");
-      }
-    } else {
-      console.log("✗ 'type=recovery' NOT found in hash");
-    }
-    
-    // Also listen for hash changes
-    const handleHashChange = () => {
-      console.log("Hash changed! New hash:", window.location.hash);
-      const newHash = window.location.hash;
-      
-      if (newHash.includes("type=recovery")) {
-        const tokenMatch = newHash.match(/token=([^&#]+)/);
-        if (tokenMatch && tokenMatch[1]) {
-          console.log("✓ Token found after hash change:", tokenMatch[1]);
-          setRecoveryToken(tokenMatch[1]);
-        }
-      }
-    };
-    
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, []);
-
-  // DEBUG: Log recoveryToken whenever it changes
-  useEffect(() => {
-    console.log("recoveryToken state changed:", recoveryToken);
-  }, [recoveryToken]);
-
-  // If user is trying to reset password via token
-  if (recoveryToken) {
-    return (
-      <ResetPasswordScreen
-        token={recoveryToken}
-        onComplete={() => {
-          setRecoveryToken(null);
-          window.location.hash = "";
-          window.location.reload();
-        }}
-        onCancel={() => {
-          setRecoveryToken(null);
-          window.location.hash = "";
-        }}
-      />
-    );
-  }
 
   if (!isLoggedIn) {
     return <LoginScreen signIn={signIn} signUp={signUp} authLoading={authLoading} authError={authError} />;

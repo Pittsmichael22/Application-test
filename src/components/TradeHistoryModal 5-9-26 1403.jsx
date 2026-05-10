@@ -48,22 +48,11 @@ export function TradeHistoryModal({
     // Only recalculate if we have both prices
     if (!entry || !exit) return;
 
-    // Tick size and value by instrument family
-    const getTickInfo = (symbol = "") => {
-      const s = symbol.toUpperCase();
-      if (s.includes("NQ") || s.includes("MNQ"))  return { tickSize: 0.25, tickValue: s.startsWith("M") ? 0.50 : 5.00 };
-      if (s.includes("ES") || s.includes("MES"))  return { tickSize: 0.25, tickValue: s.startsWith("M") ? 1.25 : 12.50 };
-      if (s.includes("YM") || s.includes("MYM"))  return { tickSize: 1.00, tickValue: s.startsWith("M") ? 0.50 : 5.00 };
-      if (s.includes("RTY") || s.includes("M2K")) return { tickSize: 0.10, tickValue: s.startsWith("M") ? 0.50 : 5.00 };
-      if (s.includes("CL"))  return { tickSize: 0.01, tickValue: 10.00 };
-      if (s.includes("GC"))  return { tickSize: 0.10, tickValue: 10.00 };
-      if (s.includes("SI"))  return { tickSize: 0.005, tickValue: 25.00 };
-      return { tickSize: 0.01, tickValue: 1.00 };
-    };
-    const { tickSize, tickValue } = getTickInfo(editedForm.symbol);
+    // Use broker P&L if available (CSV imports), otherwise calculate from prices
+    // For futures: ticks * $5/tick * size * direction - costs
     const dir   = editedForm.direction === "Long" ? 1 : editedForm.direction === "Short" ? -1 : 1;
-    const ticks = (exit - entry) / tickSize;
-    const gross = Math.round(dir * ticks * tickValue * size * 100) / 100;
+    const ticks = (exit - entry) / 0.25;
+    const gross = Math.round(dir * ticks * 5 * size * 100) / 100;
     const net   = Math.round((gross - fees - comms) * 100) / 100;
 
     if (net !== editedForm.pnl) {

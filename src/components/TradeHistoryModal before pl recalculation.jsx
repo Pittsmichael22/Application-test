@@ -36,62 +36,12 @@ export function TradeHistoryModal({
     }
   }, [trade]);
 
-  // Auto-recalculate P&L whenever price, size, fees or commissions change in edit mode
-  useEffect(() => {
-    if (!editedForm || !isEditMode) return;
-    const entry   = parseFloat(editedForm.entry_price);
-    const exit    = parseFloat(editedForm.exit_price);
-    const size    = parseFloat(editedForm.position_size) || 1;
-    const fees    = parseFloat(editedForm.fees)          || 0;
-    const comms   = parseFloat(editedForm.commissions)   || 0;
-
-    // Only recalculate if we have both prices
-    if (!entry || !exit) return;
-
-    // Tick size and value by instrument family
-    const getTickInfo = (symbol = "") => {
-      const s = symbol.toUpperCase();
-      if (s.includes("NQ") || s.includes("MNQ"))  return { tickSize: 0.25, tickValue: s.startsWith("M") ? 0.50 : 5.00 };
-      if (s.includes("ES") || s.includes("MES"))  return { tickSize: 0.25, tickValue: s.startsWith("M") ? 1.25 : 12.50 };
-      if (s.includes("YM") || s.includes("MYM"))  return { tickSize: 1.00, tickValue: s.startsWith("M") ? 0.50 : 5.00 };
-      if (s.includes("RTY") || s.includes("M2K")) return { tickSize: 0.10, tickValue: s.startsWith("M") ? 0.50 : 5.00 };
-      if (s.includes("CL"))  return { tickSize: 0.01, tickValue: 10.00 };
-      if (s.includes("GC"))  return { tickSize: 0.10, tickValue: 10.00 };
-      if (s.includes("SI"))  return { tickSize: 0.005, tickValue: 25.00 };
-      return { tickSize: 0.01, tickValue: 1.00 };
-    };
-    const { tickSize, tickValue } = getTickInfo(editedForm.symbol);
-    const dir   = editedForm.direction === "Long" ? 1 : editedForm.direction === "Short" ? -1 : 1;
-    const ticks = (exit - entry) / tickSize;
-    const gross = Math.round(dir * ticks * tickValue * size * 100) / 100;
-    const net   = Math.round((gross - fees - comms) * 100) / 100;
-
-    if (net !== editedForm.pnl) {
-      setEditedForm(prev => ({
-        ...prev,
-        pnl: net,
-        result: net > 0 ? "Win" : net < 0 ? "Loss" : "Breakeven",
-      }));
-    }
-  }, [
-    editedForm?.entry_price,
-    editedForm?.exit_price,
-    editedForm?.position_size,
-    editedForm?.direction,
-    editedForm?.fees,
-    editedForm?.commissions,
-    isEditMode,
-  ]);
-
   if (!isOpen || !trade) return null;
 
   const handleSave = async () => {
     if (editedForm) {
-      const pnl = parseFloat(editedForm.pnl) || 0;
       const updatedForm = {
         ...editedForm,
-        pnl,
-        result: pnl > 0 ? "Win" : pnl < 0 ? "Loss" : "Breakeven",
         discipline_score: calcDisciplineScore(editedForm),
       };
       await updateTrade(trade.id, updatedForm);
@@ -104,15 +54,9 @@ export function TradeHistoryModal({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h2>
             {trade.symbol} —{' '}
             {trade.direction === 'Long' ? '↑ Long' : trade.direction === 'Short' ? '↓ Short' : trade.direction}
-            {trade.import_source === 'csv' && (
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: '#ffd74020', border: '1px solid #ffd74050', color: '#ffd740',
-              }}>CSV Import</span>
-            )}
           </h2>
           <button className="close-btn" onClick={onClose}>✕</button>
         </div>
@@ -224,15 +168,6 @@ function TradeInfoReadOnly({ trade, accounts, onEdit }) {
   return (
     <div>
       {secHead}
-      {trade.import_source === 'csv' && (
-        <div style={{
-          padding: '10px 14px', borderRadius: 8, marginBottom: 16,
-          background: '#ffd74015', border: '1px solid #ffd74040',
-          fontSize: 12, color: '#ffd740',
-        }}>
-          📥 This trade was imported from CSV. Post-Trade Reflection fields are empty — tap <strong>Edit Trade</strong> to fill them in.
-        </div>
-      )}
 
       {/* Result banner */}
       <div style={{
@@ -460,24 +395,6 @@ function TradeEditForm({ editedForm, setEditedForm, onSave, onCancel, customStra
           <input style={inp} type="text" value={editedForm.symbol || ''}
             onChange={e => set('symbol', e.target.value.toUpperCase())} />
         </div>
-
-        {/* Live P&L preview */}
-        {editedForm.entry_price && editedForm.exit_price && (
-          <div style={{
-            padding: '12px 16px', borderRadius: 8, marginBottom: 14,
-            background: (editedForm.pnl || 0) >= 0 ? '#00e67615' : '#ff174415',
-            border: `1px solid ${(editedForm.pnl || 0) >= 0 ? '#00e67640' : '#ff174440'}`,
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <span style={{ fontSize: 12, color: '#8a9ba8' }}>Calculated P&L (after fees)</span>
-            <span style={{ fontSize: 18, fontWeight: 800, color: (editedForm.pnl || 0) >= 0 ? '#00e676' : '#ff1744' }}>
-              {(editedForm.pnl || 0) >= 0 ? '+' : ''}${(editedForm.pnl || 0).toFixed(2)}
-              <span style={{ fontSize: 11, color: '#8a9ba8', fontWeight: 400, marginLeft: 6 }}>
-                {editedForm.result || ''}
-              </span>
-            </span>
-          </div>
-        )}
 
         <div style={{ ...grid, marginBottom: 14 }}>
           <div>

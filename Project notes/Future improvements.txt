@@ -1,0 +1,28 @@
+Future improvements
+
+
+New menu item added in the left drop down menu... under portfolio I want to add a settings menu page where users can change their time-zone settings to be recorded with each trade. 
+
+New menu item added in the left drop down, export menu page. Users can download trade logs and trade information.
+
+Correct the supabase token refresh, it currently looses connection after 60minutes.
+
+Withdraw button on the desktop: Click "Withdraw" button on the account/dashboard.
+Modal opens with:
+Amount to withdraw
+Fee amount (editable)
+Fee type (Withdrawal Fee)
+Total deduction = Amount + Fee
+Destination (e.g., "Bank Account", "External Wallet", "Cash", or custom note)
+Date (default = today)
+Optional: Notes / Reason
+
+Click Confirm →
+Balance is reduced
+Withdrawal is recorded in history
+Success message
+
+Calculate balance on the fly: SUM(amount) from transactions (better for accuracy).
+
+
+Calendar page that details P&L by date and number of trades
