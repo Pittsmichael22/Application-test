@@ -5325,28 +5325,30 @@ function ResetPasswordScreen({ token, onComplete, onCancel }) {
 
     setLoading(true);
     try {
-      // Supabase recovery: use the token directly with /auth/v1/user endpoint
-      const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        method: "PUT",
+      // The token from recovery email is a reset token that needs to be verified first
+      const verifyRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+        method: "POST",
         headers: {
+          "Content-Type": "application/json",
           "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
         },
         body: JSON.stringify({
+          type: "recovery",
+          token: token,
           password: newPassword
         })
       });
 
-      if (response.ok) {
+      const verifyData = await verifyRes.json();
+      
+      if (verifyRes.ok && verifyData?.user) {
         setSuccess(true);
         setTimeout(() => onComplete && onComplete(), 2000);
       } else {
-        const errorData = await response.json();
-        setError(errorData?.error_description || errorData?.error || "Failed to reset password");
+        setError(verifyData?.error_description || verifyData?.error || "Failed to reset password. The link may have expired.");
       }
     } catch (e) {
-      setError("Error: " + e.message);
+      setError("Connection error: " + e.message);
     } finally {
       setLoading(false);
     }
