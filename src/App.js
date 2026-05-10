@@ -5325,8 +5325,8 @@ function ResetPasswordScreen({ token, onComplete, onCancel }) {
 
     setLoading(true);
     try {
-      // Supabase recovery endpoint - sends token + new password
-      const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+      // Step 1: Verify the recovery token to get a session
+      const verifyRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -5334,22 +5334,43 @@ function ResetPasswordScreen({ token, onComplete, onCancel }) {
         },
         body: JSON.stringify({
           type: "recovery",
-          token: token,
+          token: token
+        })
+      });
+
+      const verifyData = await verifyRes.json();
+      console.log("Verify response:", verifyData);
+
+      if (!verifyRes.ok || !verifyData?.access_token) {
+        setError("Invalid or expired recovery link.");
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Use the access token to update the password
+      const updateRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${verifyData.access_token}`
+        },
+        body: JSON.stringify({
           password: newPassword
         })
       });
 
-      const data = await response.json();
-      
-      if (response.ok && data?.user) {
+      const updateData = await updateRes.json();
+      console.log("Update response:", updateData);
+
+      if (updateRes.ok) {
         setSuccess(true);
         setTimeout(() => onComplete && onComplete(), 2000);
       } else {
-        console.error("Password reset error:", data);
-        setError(data?.error_description || data?.error || "Failed to reset password");
+        setError(updateData?.error_description || updateData?.error || "Failed to update password");
       }
     } catch (e) {
-      console.error("Password reset exception:", e);
+      console.error("Password reset error:", e);
       setError("Connection error: " + e.message);
     } finally {
       setLoading(false);
