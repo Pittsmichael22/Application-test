@@ -28,7 +28,7 @@ export function TradeHistoryModal({
 }) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedForm, setEditedForm] = useState(null);
-
+// eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (trade) {
       setEditedForm({ ...trade });

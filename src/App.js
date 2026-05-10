@@ -618,6 +618,7 @@ function normaliseTrade(data) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INSTRUMENT SETTINGS HOOK
+// eslint-disable-next-line no-unused-vars
 // ─────────────────────────────────────────────────────────────────────────────
 function useInstrumentSettings(userId) {
   const [instrumentSettings, setInstrumentSettings] = useState([]);
@@ -2331,6 +2332,7 @@ function Dashboard({
   profile,
   openTradeReview,
   updateTrade
+// eslint-disable-next-line no-unused-vars
 }) {
   const [selectedAccountId, setSelectedAccountId] = useState(() => 
     Array.isArray(accounts) && accounts.length > 0 ? accounts[0].id : null
@@ -5604,6 +5606,7 @@ function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError,
 
 // ─────────────────────────────────────────────────────────────
 // RESET PASSWORD PAGE (Handles email reset link click)
+// eslint-disable-next-line no-unused-vars
 // ─────────────────────────────────────────────────────────────
 function ResetPasswordPage({ onBack }) {
   const [newPassword, setNewPassword] = useState("");
@@ -6026,6 +6029,7 @@ function DisciplineAnalytics({ trades, setView, accounts = [], currentAccountId,
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   };
   const wr = arr => arr.length ? arr.filter(x => x.result === "Win").length / arr.length : null;
+  // eslint-disable-next-line no-unused-vars
   const pct = v => v != null ? `${(v * 100).toFixed(0)}%` : "—";
   const avgFmt = (arr, field) => { const v = avg(arr, field); return v != null ? v.toFixed(1) : "—"; };
 

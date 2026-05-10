@@ -20,6 +20,7 @@ function InstrumentsManager({ currentAccountId, supabase, userId }) {
   const [newInstrument, setNewInstrument] = useState({ symbol: '', display_name: '', category: 'futures', exchange: '', default_tick_size: 0.25, default_tick_value: 5.00 });
   const [showAddForm, setShowAddForm] = useState(false);
 
+// eslint-disable-next-line react-hooks/exhaustive-deps
   // Fetch instruments and current account settings
   useEffect(() => {
     if (!currentAccountId || !userId) return;
