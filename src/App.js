@@ -3899,9 +3899,7 @@ function MonthlyCalendar({ trades = [], account = null, getDailyNote, saveDailyN
 function Analytics({ trades, accounts = [], currentAccountId, setCurrentAccountId, getDailyNote, saveDailyNote }) {
   const [dateRange, setDateRange] = useState("all");
   const [tab, setTab] = useState("overview");
-// eslint-disable-next-line no-unused-vars
-
-  const selectedAccount = Array.isArray(accounts) 
+/* const selectedAccount = Array.isArray(accounts) 
     ? accounts.find(a => a.id === currentAccountId) 
     : null;
 
@@ -5330,25 +5328,28 @@ function ResetPasswordScreen({ token, onComplete, onCancel }) {
 
     setLoading(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-        method: "POST",
-        headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+      // Use the correct Supabase password update endpoint
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: "PUT",
+        headers: { 
+          apikey: SUPABASE_ANON_KEY, 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({
-          token: token,
-          type: "recovery",
           password: newPassword
         })
       });
 
       const data = await res.json();
-      if (res.ok || data?.access_token) {
+      if (res.ok) {
         setSuccess(true);
         setTimeout(() => onComplete && onComplete(), 2000);
       } else {
         setError(data?.error_description || data?.error || "Failed to reset password. Try again.");
       }
     } catch (e) {
-      setError("Connection error. Please try again.");
+      setError("Connection error. Please try again: " + e.message);
     } finally {
       setLoading(false);
     }
