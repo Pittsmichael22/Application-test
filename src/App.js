@@ -5584,17 +5584,456 @@ function ResetPasswordPage({ onBack }) {
 // LEGAL DOCUMENT DISPLAY
 // ─────────────────────────────────────────────────────────────
 function LegalDocument({ title }) {
-  const privacyContent = `Privacy Policy\n\nFutures OS is committed to protecting your privacy. We collect information you provide and information collected automatically. We use your information to provide the Service, generate AI-powered analysis, persist your settings, improve the Service, and ensure security.\n\nYour data is stored in Supabase with AES-256 encryption at rest and TLS in transit. We do not sell your personal data.\n\nWhen you use AI-powered features, anonymized trade data is sent to Anthropic's Claude API. You can disable AI features anytime in settings.\n\nUsers may request access, correction, or deletion of data.`;
+  const privacyContent = `# Privacy Policy
 
-  const termsContent = `Terms of Service\n\nFutures OS is a subscription-based trading journal and analytics platform. By using the Service, you agree to be bound by these Terms.\n\nYou must be at least 18 years of age. You are responsible for maintaining account confidentiality.\n\nTHE SERVICE IS PROVIDED "AS IS" WITHOUT WARRANTIES. We do not provide financial advice or trading recommendations.\n\nAI-generated content is provided for informational purposes only and may be inaccurate. You are solely responsible for your trading decisions.\n\nWe are not liable for trading losses or any indirect damages.`;
+**Futures OS**
+Last Updated: May 10, 2026
+
+---
+
+## 1. Introduction
+
+Futures OS ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our trading journal and analytics platform ("Service").
+
+By using the Service, you agree to the collection and use of information in accordance with this policy. If you do not agree, please discontinue use of the Service.
+
+---
+
+## 2. Information We Collect
+
+### Information You Provide Directly
+- **Account Information:** Email address, display name, and password used to create your account.
+- **Trade Data:** Trade entries including symbols, entry/exit prices, position sizes, profit and loss figures, dates, and times.
+- **Behavioral & Psychological Data:** Self-reported data including emotional state, discipline scores, focus levels, fear and greed ratings, rule adherence scores, and post-trade reflections.
+- **Account Settings:** Trading account names, account types, starting balances, maximum drawdown limits, and risk preferences.
+- **Custom Strategies:** Strategy names, descriptions, and preferences you create within the Service.
+- **Imported Data:** Trade data imported via CSV from brokers such as TopStep, Tradovate, or other supported platforms.
+
+### Information Collected Automatically
+- **Usage Data:** Pages visited, features used, session duration, and interaction patterns within the Service.
+- **Device Information:** Browser type, operating system, and IP address.
+- **Authentication Tokens:** Session tokens used to maintain your logged-in state.
+
+---
+
+## 3. How We Use Your Information
+
+We use the information we collect to:
+
+- **Provide the Service:** Display your trade journal, analytics, discipline scores, and performance metrics.
+- **Generate AI-Powered Analysis:** Create personalized daily briefings and coaching insights using anonymized versions of your trade and behavioral data (see Section 6 for details).
+- **Persist Your Settings:** Save your preferences, risk limits, custom strategies, and account configurations across sessions.
+- **Improve the Service:** Analyze aggregate, anonymized usage patterns to improve features and performance.
+- **Communicate With You:** Send transactional emails related to your account (password resets, billing receipts). We do not send marketing emails without your explicit consent.
+- **Ensure Security:** Detect and prevent fraudulent or unauthorized access.
+
+---
+
+## 4. Data Storage and Security
+
+- Your data is stored in **Supabase**, a secure cloud database platform. Supabase uses industry-standard encryption (AES-256 at rest, TLS in transit) and is SOC 2 compliant.
+- Row-Level Security (RLS) is enforced on all data tables, meaning your data is only accessible to your authenticated account.
+- We do not store payment card information. Payment processing is handled by a PCI-compliant third-party processor.
+- We retain your data for as long as your account is active. Upon account deletion, your data is permanently removed within 30 days.
+
+---
+
+## 5. Data Sharing and Disclosure
+
+We do not sell your personal data. We do not share your data with advertisers.
+
+We may share your data only in the following limited circumstances:
+
+- **Service Providers:** Third-party vendors who assist us in operating the Service (listed in Section 6), bound by confidentiality agreements.
+- **Legal Requirements:** If required by law, court order, or governmental authority.
+- **Business Transfer:** If Futures OS is acquired or merges with another company, your data may be transferred as part of that transaction. You will be notified in advance.
+- **With Your Consent:** Any other sharing will only occur with your explicit consent.
+
+---
+
+## 6. Third-Party AI Processing (Anthropic Claude)
+
+Futures OS uses **Anthropic's Claude API** to generate personalized AI-powered trade analysis and daily briefings.
+
+**What is sent to Anthropic:**
+When you use AI-powered features, a subset of your trade and behavioral data is sent to Anthropic's API for processing. This includes:
+- Aggregated trade statistics (win rates, P&L totals, discipline score trends)
+- Behavioral pattern summaries (e.g., win rate by mental state, best-performing setups)
+- Risk settings (max drawdown, max daily trades)
+- Recent trade history (symbols, results, scores — no personally identifying information)
+
+**What is NOT sent to Anthropic:**
+- Your name or email address
+- Raw account balances or broker credentials
+- Payment information
+
+**Anthropic's Data Practices:**
+- Anthropic does **not** use API-submitted data to train its models by default.
+- Data submitted via the API is subject to Anthropic's Privacy Policy and Usage Policy.
+- Anthropic is listed as a **data sub-processor** under this policy.
+
+**Your Control:**
+- AI-powered analysis features can be disabled in your account settings.
+- When disabled, no data is sent to Anthropic.
+
+---
+
+## 7. Third-Party Sub-Processors
+
+We work with the following third-party sub-processors who may process your data on our behalf:
+
+| Provider | Purpose | Data Processed |
+|---|---|---|
+| Supabase | Database & Authentication | All user and trade data |
+| Anthropic | AI-powered analysis | Anonymized trade patterns |
+
+---
+
+## 8. Your Rights
+
+Depending on your location, you may have the following rights regarding your personal data:
+
+### All Users
+- **Access:** Request a copy of the data we hold about you.
+- **Correction:** Request correction of inaccurate data.
+- **Deletion:** Request deletion of your account and all associated data.
+- **Export:** Request an export of your trade data in a portable format (CSV).
+
+### European Union / EEA Users (GDPR)
+In addition to the above, you have the right to:
+- **Restrict Processing:** Request that we limit how we use your data.
+- **Object to Processing:** Object to processing based on legitimate interests.
+- **Data Portability:** Receive your data in a structured, machine-readable format.
+- **Lodge a Complaint:** With your local data protection authority.
+
+Our legal basis for processing your data is:
+- **Contract:** Processing necessary to provide the Service you subscribed to.
+- **Legitimate Interest:** Security monitoring and Service improvement.
+- **Consent:** AI-powered features and any optional data processing.
+
+### California Users (CCPA)
+You have the right to:
+- Know what personal information is collected and how it is used.
+- Request deletion of your personal information.
+- Opt out of the sale of personal information (we do not sell personal information).
+- Non-discrimination for exercising your privacy rights.
+
+---
+
+## 9. Cookies and Local Storage
+
+The Service uses browser local storage to maintain your authentication session. We do not use third-party advertising cookies. We may use minimal analytics cookies to understand aggregate usage patterns.
+
+---
+
+## 10. Children's Privacy
+
+The Service is not directed to individuals under the age of 18. We do not knowingly collect personal information from minors. If you believe a minor has provided us with personal information, please contact us and we will delete it promptly.
+
+---
+
+## 11. Changes to This Policy
+
+We may update this Privacy Policy from time to time. We will notify you of material changes by:
+- Posting a notice within the Service
+- Sending an email to your registered address
+- Updating the "Last Updated" date at the top of this policy
+
+Continued use of the Service after changes constitutes acceptance of the updated policy.
+
+---
+
+## 12. Contact Us
+
+If you have questions about this Privacy Policy or wish to exercise your data rights, please contact us at your support email.
+
+For GDPR-related requests, please include "GDPR Request" in the subject line.
+For CCPA-related requests, please include "CCPA Request" in the subject line.
+
+We will respond to all requests within 30 days.`;
+
+  const termsContent = `# Terms of Service
+
+**Futures OS**
+Last Updated: May 10, 2026
+
+---
+
+## 1. Agreement to Terms
+
+By accessing or using Futures OS ("Service," "we," "our," or "us"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, do not use the Service.
+
+These Terms constitute a legally binding agreement between you ("User," "you," or "your") and Futures OS. Please read them carefully.
+
+---
+
+## 2. Description of Service
+
+Futures OS is a subscription-based trading journal and analytics platform designed to help traders track, analyze, and improve their trading performance. The Service includes:
+
+- Trade journaling and logging tools
+- Performance analytics and reporting
+- Behavioral and discipline scoring
+- AI-powered personalized trade analysis and daily briefings
+- Strategy management tools
+- Risk management settings and alerts
+- CSV trade import from supported brokers
+
+---
+
+## 3. Eligibility
+
+To use the Service, you must:
+
+- Be at least 18 years of age
+- Have the legal capacity to enter into a binding agreement
+- Not be prohibited from using the Service under applicable law
+- Provide accurate and complete registration information
+
+By using the Service, you represent and warrant that you meet all eligibility requirements.
+
+---
+
+## 4. Account Registration and Security
+
+### 4.1 Account Creation
+You must create an account to use the Service. You agree to provide accurate, current, and complete information during registration and to keep this information updated.
+
+### 4.2 Account Security
+You are responsible for:
+- Maintaining the confidentiality of your account credentials
+- All activity that occurs under your account
+- Notifying us immediately of any unauthorized access
+
+We are not liable for any loss resulting from unauthorized use of your account.
+
+### 4.3 One Account Per User
+Each account is for a single individual user. You may not share your account credentials with others or allow others to access the Service through your account.
+
+---
+
+## 5. Subscription and Payment
+
+### 5.1 Subscription Plans
+Access to the Service requires a paid subscription.
+
+### 5.2 Billing
+- Subscriptions are billed in advance on a recurring basis (monthly or annually, depending on your selected plan)
+- You authorize us to charge your payment method on each renewal date
+- All fees are in US Dollars unless otherwise stated
+
+### 5.3 Free Trial
+If we offer a free trial, it will be described at sign-up. At the end of the trial period, your subscription will automatically convert to a paid plan unless you cancel before the trial ends.
+
+### 5.4 Cancellation
+- You may cancel your subscription at any time through your account settings
+- Cancellation takes effect at the end of your current billing period
+- You retain access to the Service until the end of the paid period
+- We do not provide refunds for partial billing periods unless required by law
+
+### 5.5 Refund Policy
+- Annual subscriptions cancelled within 14 days of purchase may be eligible for a full refund
+- Monthly subscriptions are non-refundable after the billing date
+- Refund requests must be submitted to support
+
+### 5.6 Price Changes
+We reserve the right to change subscription prices. We will provide at least 30 days advance notice of any price increase. Continued use after the notice period constitutes acceptance of the new pricing.
+
+---
+
+## 6. Acceptable Use
+
+### 6.1 Permitted Use
+You may use the Service solely for your personal trading journal and analytics purposes in accordance with these Terms.
+
+### 6.2 Prohibited Use
+You agree not to:
+
+- Use the Service for any unlawful purpose or in violation of any regulations
+- Share, resell, sublicense, or redistribute access to the Service
+- Attempt to reverse engineer, decompile, or extract source code from the Service
+- Use automated tools, bots, or scripts to access or scrape the Service
+- Introduce malware, viruses, or malicious code
+- Attempt to gain unauthorized access to any part of the Service or its infrastructure
+- Use the Service to transmit spam or unsolicited communications
+- Impersonate any person or entity
+- Use the Service in a manner that could damage, disable, or impair it
+- Circumvent any access controls or security measures
+
+### 6.3 Account Termination for Violations
+We reserve the right to suspend or terminate your account immediately and without notice if you violate these Terms.
+
+---
+
+## 7. Important Disclaimer — Not Financial Advice
+
+**THE SERVICE IS A TRADING JOURNAL AND ANALYTICS TOOL ONLY.**
+
+- Futures OS does **not** provide financial advice, investment advice, trading recommendations, or any form of regulated financial services
+- AI-generated analysis and daily briefings are for **informational and educational purposes only** and do not constitute trading recommendations
+- Past performance data shown in the Service does not guarantee future results
+- Trading futures, options, and other financial instruments involves **substantial risk of loss** and is not suitable for all investors
+- You should consult a qualified financial advisor before making any trading or investment decisions
+- We are not registered as an investment advisor, broker-dealer, or financial planner with any regulatory authority
+
+**You are solely responsible for your trading decisions and any resulting profits or losses.**
+
+---
+
+## 8. AI-Powered Features
+
+### 8.1 Nature of AI Analysis
+The Service includes AI-powered features that generate personalized analysis using your trade data. These features:
+
+- Are powered by Anthropic's Claude AI model
+- Use anonymized versions of your trade history and behavioral data
+- Generate informational insights, not financial advice
+- May occasionally produce inaccurate or incomplete analysis
+
+### 8.2 No Guarantee of Accuracy
+AI-generated content is provided "as is." We make no warranty that AI analysis will be accurate, complete, or suitable for any particular purpose. You should independently verify any AI-generated insights before acting on them.
+
+### 8.3 Opt-Out
+You may disable AI-powered features at any time in your account settings. When disabled, your data will not be sent to third-party AI processors.
+
+---
+
+## 9. Intellectual Property
+
+### 9.1 Our Property
+The Service, including its design, code, features, logos, and content (excluding your data), is owned by Futures OS and protected by intellectual property laws. You may not copy, modify, distribute, or create derivative works without our express written consent.
+
+### 9.2 Your Data
+You retain full ownership of all trade data, journal entries, and other content you submit to the Service ("Your Data"). By using the Service, you grant us a limited, non-exclusive license to store, process, and display Your Data solely for the purpose of providing the Service to you.
+
+### 9.3 Feedback
+If you submit feedback, suggestions, or ideas about the Service, you grant us the right to use that feedback without compensation or attribution to you.
+
+---
+
+## 10. Privacy
+
+Your use of the Service is governed by our Privacy Policy, which is incorporated into these Terms by reference. By using the Service, you consent to our collection and use of your data as described in the Privacy Policy.
+
+---
+
+## 11. Third-Party Services
+
+The Service integrates with third-party services including Supabase (database) and Anthropic (AI). Your use of the Service is subject to the terms and privacy policies of these third-party providers. We are not responsible for the practices of third-party services.
+
+---
+
+## 12. Service Availability and Modifications
+
+### 12.1 Availability
+We strive to maintain high availability but do not guarantee uninterrupted access to the Service. We may experience downtime due to maintenance, updates, or circumstances beyond our control.
+
+### 12.2 Modifications
+We reserve the right to modify, suspend, or discontinue any feature of the Service at any time. We will provide reasonable notice of material changes where practicable.
+
+### 12.3 Data Export
+If we discontinue the Service, we will provide you with at least 30 days notice and the ability to export your trade data before shutdown.
+
+---
+
+## 13. Disclaimers and Limitation of Liability
+
+### 13.1 Disclaimer of Warranties
+THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+### 13.2 Limitation of Liability
+TO THE MAXIMUM EXTENT PERMITTED BY LAW:
+
+- WE WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES
+- WE WILL NOT BE LIABLE FOR ANY TRADING LOSSES, LOST PROFITS, OR FINANCIAL LOSSES OF ANY KIND ARISING FROM YOUR USE OF THE SERVICE
+- OUR TOTAL LIABILITY TO YOU FOR ANY CLAIM ARISING FROM THESE TERMS OR THE SERVICE WILL NOT EXCEED THE AMOUNT YOU PAID US IN THE 3 MONTHS PRECEDING THE CLAIM
+
+### 13.3 Essential Basis
+You acknowledge that the limitations of liability in this section are an essential element of the agreement between you and Futures OS, without which we would not provide the Service.
+
+---
+
+## 14. Indemnification
+
+You agree to indemnify, defend, and hold harmless Futures OS and its officers, directors, employees, and agents from any claims, damages, losses, or expenses (including reasonable legal fees) arising from:
+
+- Your use of the Service
+- Your violation of these Terms
+- Your violation of any third-party rights
+- Any trading decisions made based on information from the Service
+
+---
+
+## 15. Governing Law and Dispute Resolution
+
+### 15.1 Governing Law
+These Terms are governed by the laws of the United States, without regard to conflict of law principles.
+
+### 15.2 Informal Resolution
+Before filing any legal claim, you agree to contact us and attempt to resolve the dispute informally for at least 30 days.
+
+### 15.3 Arbitration
+If informal resolution fails, disputes will be resolved through binding arbitration under the rules of the American Arbitration Association (AAA). You waive the right to a jury trial and to participate in class action lawsuits.
+
+### 15.4 Exception
+Either party may seek injunctive or equitable relief in a court of competent jurisdiction for claims involving intellectual property or unauthorized access.
+
+---
+
+## 16. Changes to Terms
+
+We may update these Terms from time to time. We will notify you of material changes by:
+
+- Posting a notice within the Service
+- Sending an email to your registered address at least 14 days before changes take effect
+- Updating the "Last Updated" date at the top of this document
+
+Continued use of the Service after the effective date constitutes acceptance of the updated Terms. If you do not agree to the changes, you must cancel your subscription before the effective date.
+
+---
+
+## 17. Termination
+
+### 17.1 By You
+You may terminate your account at any time by cancelling your subscription and requesting account deletion through the Service settings or by contacting us.
+
+### 17.2 By Us
+We may suspend or terminate your account immediately if you:
+- Violate these Terms
+- Fail to pay subscription fees
+- Engage in fraudulent or harmful behavior
+
+### 17.3 Effect of Termination
+Upon termination, your right to use the Service ceases immediately. You may export your data within 30 days of termination. After 30 days, your data will be permanently deleted.
+
+---
+
+## 18. Miscellaneous
+
+### 18.1 Entire Agreement
+These Terms and our Privacy Policy constitute the entire agreement between you and Futures OS regarding the Service.
+
+### 18.2 Severability
+If any provision of these Terms is found unenforceable, the remaining provisions will continue in full force.
+
+### 18.3 No Waiver
+Our failure to enforce any provision of these Terms does not constitute a waiver of our right to enforce it in the future.
+
+### 18.4 Assignment
+You may not assign your rights under these Terms without our consent. We may assign our rights to a successor in connection with a merger or acquisition.
+
+---
+
+## 19. Contact Information
+
+For questions about these Terms, please contact us.
+
+For legal notices, please use "Legal Notice" in the subject line.`;
 
   const content = title === "Privacy Policy" ? privacyContent : termsContent;
 
   return (
-    <div style={{ fontSize: 13, lineHeight: 1.6, color: C.text, padding: 16, whiteSpace: "pre-wrap" }}>
-      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, borderBottom: `1px solid ${C.border}`, paddingBottom: 16 }}>
-        {title}
-      </div>
+    <div style={{ fontSize: 12, lineHeight: 1.6, color: C.text, padding: 16, whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
       {content}
     </div>
   );
