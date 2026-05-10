@@ -617,12 +617,8 @@ function normaliseTrade(data) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// INSTRUMENT SETTINGS HOOK
+// useInstrumentSettings - removed (unused)
 // ─────────────────────────────────────────────────────────────────────────────
-function useInstrumentSettings(userId) {
-  const [instrumentSettings, setInstrumentSettings] = useState([]);
-
-  const fetchSettings = useCallback(async () => {
     if (!userId) return;
     try {
       const res = await fetch(
@@ -2332,10 +2328,13 @@ function Dashboard({
   openTradeReview,
   updateTrade
 }) {
-  const [selectedAccountId, setSelectedAccountId] = useState(() => 
-    Array.isArray(accounts) && accounts.length > 0 ? accounts[0].id : null
-  );
+  // const [selectedAccountId, setSelectedAccountId] = useState(() => 
+  //   Array.isArray(accounts) && accounts.length > 0 ? accounts[0].id : null
+  // ); // UNUSED - using currentAccountId instead
   const [showRMultiple, setShowRMultiple] = useState(false);
+
+  // eslint-disable-next-line no-unused-vars
+
 
   const selectedAccount = Array.isArray(accounts) 
     ? accounts.find(a => a.id === currentAccountId) 
@@ -5605,6 +5604,7 @@ function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError,
 // ─────────────────────────────────────────────────────────────
 // RESET PASSWORD PAGE (Handles email reset link click)
 // ─────────────────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
 function ResetPasswordPage({ onBack }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -6149,7 +6149,7 @@ function DisciplineAnalytics({ trades, setView, accounts = [], currentAccountId,
   };
   const wr = arr => arr.length ? arr.filter(x => x.result === "Win").length / arr.length : null;
   const pct = v => v != null ? `${(v * 100).toFixed(0)}%` : "—";
-  const avgFmt = (arr, field) => { const v = avg(arr, field); return v != null ? v.toFixed(1) : "—"; };
+  // const avgFmt removed - unused return v != null ? v.toFixed(1) : "—"; };
 
   // ── Discipline trend (last 10) ────────────────────────────────────────────
   const last10 = accountTrades.slice(0, 10).map(t => t.discipline_score).filter(Boolean);
