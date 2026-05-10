@@ -5300,13 +5300,36 @@ function TradeLog({
 // ─────────────────────────────────────────────────────────────
 // RESET PASSWORD SCREEN (from email recovery link)
 // ─────────────────────────────────────────────────────────────
-function ResetPasswordScreen({ token, onComplete, onCancel }) {
+function ResetPasswordScreen({ tokenHash, onComplete, onCancel }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [verified, setVerified] = useState(false);
+
+  // Step 1: Verify the token hash when component mounts
+  useEffect(() => {
+    const verifyToken = async () => {
+      try {
+        const { data, error: verifyError } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: tokenHash
+        });
+
+        if (verifyError) {
+          setError("Invalid or expired reset link. " + verifyError.message);
+        } else if (data?.user) {
+          setVerified(true);
+        }
+      } catch (e) {
+        setError("Error verifying reset link: " + e.message);
+      }
+    };
+
+    verifyToken();
+  }, [tokenHash]);
 
   const handleReset = async () => {
     setError("");
@@ -5325,52 +5348,19 @@ function ResetPasswordScreen({ token, onComplete, onCancel }) {
 
     setLoading(true);
     try {
-      // Step 1: Verify the recovery token to get a session
-      const verifyRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
-          type: "recovery",
-          token: token
-        })
+      // Update password now that user is authenticated via verifyOtp
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
       });
 
-      const verifyData = await verifyRes.json();
-      console.log("Verify response:", verifyData);
-
-      if (!verifyRes.ok || !verifyData?.access_token) {
-        setError("Invalid or expired recovery link.");
-        setLoading(false);
-        return;
-      }
-
-      // Step 2: Use the access token to update the password
-      const updateRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${verifyData.access_token}`
-        },
-        body: JSON.stringify({
-          password: newPassword
-        })
-      });
-
-      const updateData = await updateRes.json();
-      console.log("Update response:", updateData);
-
-      if (updateRes.ok) {
+      if (error) {
+        setError(error.message || "Failed to update password");
+      } else {
         setSuccess(true);
         setTimeout(() => onComplete && onComplete(), 2000);
-      } else {
-        setError(updateData?.error_description || updateData?.error || "Failed to update password");
       }
     } catch (e) {
-      console.error("Password reset error:", e);
+      console.error("Password update error:", e);
       setError("Connection error: " + e.message);
     } finally {
       setLoading(false);
@@ -7079,30 +7069,31 @@ function App() {
 
   // Check for password recovery token in URL
   const [recoveryToken, setRecoveryToken] = useState(null);
+  const [recoveryTokenHash, setRecoveryTokenHash] = useState(null);
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.includes("type=recovery")) {
-      const tokenMatch = hash.match(/token=([^&#]+)/);
-      if (tokenMatch && tokenMatch[1]) {
-        setRecoveryToken(decodeURIComponent(tokenMatch[1]));
-      }
+    // Handle both old format (#type=recovery&token=...) and new format (?token_hash=...&type=recovery)
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get("token_hash");
+    const type = params.get("type");
+
+    if (tokenHash && type === "recovery") {
+      setRecoveryTokenHash(tokenHash);
     }
   }, []);
 
   // If user is resetting password via email link
-  if (recoveryToken && !isLoggedIn) {
+  if (recoveryTokenHash && !isLoggedIn) {
     return (
       <ResetPasswordScreen
-        token={recoveryToken}
+        tokenHash={recoveryTokenHash}
         onComplete={() => {
-          setRecoveryToken(null);
-          window.location.hash = "";
-          window.location.reload();
+          setRecoveryTokenHash(null);
+          window.location.href = "/";
         }}
         onCancel={() => {
-          setRecoveryToken(null);
-          window.location.hash = "";
+          setRecoveryTokenHash(null);
+          window.location.href = "/";
         }}
       />
     );
