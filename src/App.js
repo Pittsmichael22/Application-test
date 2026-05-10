@@ -5300,7 +5300,7 @@ function TradeLog({
 // ─────────────────────────────────────────────────────────────
 // RESET PASSWORD SCREEN (from email recovery link)
 // ─────────────────────────────────────────────────────────────
-function ResetPasswordScreen({ tokenHash, onComplete, onCancel }) {
+function ResetPasswordScreen({ tokenHash, supabaseClient, onComplete, onCancel }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -5313,7 +5313,7 @@ function ResetPasswordScreen({ tokenHash, onComplete, onCancel }) {
   useEffect(() => {
     const verifyToken = async () => {
       try {
-        const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
           type: "recovery",
           token_hash: tokenHash
         });
@@ -5329,7 +5329,7 @@ function ResetPasswordScreen({ tokenHash, onComplete, onCancel }) {
     };
 
     verifyToken();
-  }, [tokenHash]);
+  }, [tokenHash, supabaseClient]);
 
   const handleReset = async () => {
     setError("");
@@ -5349,7 +5349,7 @@ function ResetPasswordScreen({ tokenHash, onComplete, onCancel }) {
     setLoading(true);
     try {
       // Update password now that user is authenticated via verifyOtp
-      const { error } = await supabase.auth.updateUser({
+      const { error } = await supabaseClient.auth.updateUser({
         password: newPassword
       });
 
@@ -7087,6 +7087,7 @@ function App() {
     return (
       <ResetPasswordScreen
         tokenHash={recoveryTokenHash}
+        supabaseClient={supabase}
         onComplete={() => {
           setRecoveryTokenHash(null);
           window.location.href = "/";
