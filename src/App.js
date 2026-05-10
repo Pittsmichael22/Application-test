@@ -5328,28 +5328,53 @@ function ResetPasswordScreen({ token, onComplete, onCancel }) {
 
     setLoading(true);
     try {
-      // Use the correct Supabase password update endpoint
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      // First, exchange the recovery token for a session
+      const exchangeRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+        method: "POST",
+        headers: { 
+          apikey: SUPABASE_ANON_KEY, 
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          type: "recovery",
+          token: token
+        })
+      });
+
+      const exchangeData = await exchangeRes.json();
+      console.log("Exchange response:", exchangeData);
+
+      if (!exchangeRes.ok || !exchangeData?.access_token) {
+        setError("Invalid or expired reset link. Request a new one.");
+        setLoading(false);
+        return;
+      }
+
+      // Now use the session token to update the password
+      const updateRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
         method: "PUT",
         headers: { 
           apikey: SUPABASE_ANON_KEY, 
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${exchangeData.access_token}`
         },
         body: JSON.stringify({
           password: newPassword
         })
       });
 
-      const data = await res.json();
-      if (res.ok) {
+      const updateData = await updateRes.json();
+      console.log("Update response:", updateData);
+
+      if (updateRes.ok) {
         setSuccess(true);
         setTimeout(() => onComplete && onComplete(), 2000);
       } else {
-        setError(data?.error_description || data?.error || "Failed to reset password. Try again.");
+        setError(updateData?.error_description || updateData?.error || "Failed to reset password. Try again.");
       }
     } catch (e) {
-      setError("Connection error. Please try again: " + e.message);
+      console.log("Error:", e);
+      setError("Connection error. Please try again.");
     } finally {
       setLoading(false);
     }
