@@ -617,8 +617,12 @@ function normaliseTrade(data) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// useInstrumentSettings - removed (unused)
+// INSTRUMENT SETTINGS HOOK
 // ─────────────────────────────────────────────────────────────────────────────
+function useInstrumentSettings(userId) {
+  const [instrumentSettings, setInstrumentSettings] = useState([]);
+
+  const fetchSettings = useCallback(async () => {
     if (!userId) return;
     try {
       const res = await fetch(
@@ -2328,13 +2332,10 @@ function Dashboard({
   openTradeReview,
   updateTrade
 }) {
-  // const [selectedAccountId, setSelectedAccountId] = useState(() => 
-  //   Array.isArray(accounts) && accounts.length > 0 ? accounts[0].id : null
-  // ); // UNUSED - using currentAccountId instead
+  const [selectedAccountId, setSelectedAccountId] = useState(() => 
+    Array.isArray(accounts) && accounts.length > 0 ? accounts[0].id : null
+  );
   const [showRMultiple, setShowRMultiple] = useState(false);
-
-  // eslint-disable-next-line no-unused-vars
-
 
   const selectedAccount = Array.isArray(accounts) 
     ? accounts.find(a => a.id === currentAccountId) 
@@ -5297,151 +5298,6 @@ function TradeLog({
 
 
 // ─────────────────────────────────────────────────────────────
-// RESET PASSWORD SCREEN (shown when user clicks email reset link)
-// ─────────────────────────────────────────────────────────────
-function ResetPasswordScreen({ token, onComplete, onCancel }) {
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-
-  const handleReset = async () => {
-    setError("");
-    if (!newPassword || !confirmPassword) {
-      setError("Please fill in both password fields.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
-        method: "POST",
-        headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: token,
-          type: "recovery",
-          password: newPassword
-        })
-      });
-
-      const data = await res.json();
-      if (res.ok || data?.access_token) {
-        setSuccess(true);
-        setTimeout(() => onComplete && onComplete(), 2000);
-      } else {
-        setError(data?.error_description || data?.error || "Failed to reset password. Try again.");
-      }
-    } catch (e) {
-      setError("Connection error. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (success) {
-    return (
-      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div style={{ width: "100%", maxWidth: 420 }}>
-          <Card>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-              <h2 style={{ color: C.text, marginBottom: 8, fontSize: 20, fontWeight: 800 }}>Password Reset!</h2>
-              <p style={{ color: C.muted, fontSize: 14 }}>Your password has been successfully updated.</p>
-              <p style={{ color: C.sub, fontSize: 12, marginTop: 16 }}>Redirecting to sign in...</p>
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: "100%", maxWidth: 420 }}>
-        <Card>
-          <div style={{ textAlign: "center", marginBottom: 24 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🔐</div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text, margin: 0 }}>Reset Your Password</h2>
-            <p style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>Enter your new password below</p>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>New Password</label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  onKeyDown={e => e.key === "Enter" && handleReset()}
-                  style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}
-                >
-                  {showPassword ? "🙈" : "👁️"}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Confirm Password</label>
-              <input
-                type={showPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                onKeyDown={e => e.key === "Enter" && handleReset()}
-                style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
-              />
-            </div>
-
-            {error && (
-              <div style={{ background: C.red + "15", border: `1px solid ${C.red}30`, borderRadius: 8, padding: "10px 14px", color: "#ff6b6b", fontSize: 13 }}>
-                ⚠️ {error}
-              </div>
-            )}
-
-            <Btn onClick={handleReset} disabled={loading} style={{ width: "100%", padding: 14 }}>
-              {loading ? "Resetting..." : "Reset Password →"}
-            </Btn>
-
-            <button
-              onClick={onCancel}
-              style={{
-                width: "100%",
-                padding: 10,
-                background: "none",
-                border: "none",
-                color: C.muted,
-                cursor: "pointer",
-                fontSize: 13,
-                textDecoration: "underline"
-              }}
-            >
-              Back to Sign In
-            </button>
-          </div>
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
 // PASSWORD RESET FORM (Forgot Password Flow)
 // ─────────────────────────────────────────────────────────────
 function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError, authLoading }) {
@@ -5604,7 +5460,6 @@ function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError,
 // ─────────────────────────────────────────────────────────────
 // RESET PASSWORD PAGE (Handles email reset link click)
 // ─────────────────────────────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
 function ResetPasswordPage({ onBack }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -5726,47 +5581,10 @@ function ResetPasswordPage({ onBack }) {
 
 
 // ─────────────────────────────────────────────────────────────
-// LEGAL DOCUMENT DISPLAY COMPONENT
-// ─────────────────────────────────────────────────────────────
-function LegalDocument({ title }) {
-  const privacyContent = `**Privacy Policy**
-
-Futures OS is committed to protecting your privacy. We collect information you provide and information collected automatically. We use your information to provide the Service, generate AI-powered analysis, persist your settings, improve the Service, and ensure security.
-
-Your data is stored in Supabase with AES-256 encryption at rest and TLS in transit. We do not sell your personal data.
-
-When you use AI-powered features, anonymized trade data is sent to Anthropic's Claude API. You can disable AI features anytime in settings. When disabled, no data is sent to Anthropic.
-
-Users may request access, correction, or deletion of data, and export their data in CSV format.`;
-
-  const termsContent = `**Terms of Service**
-
-Futures OS is a subscription-based trading journal and analytics platform. By using the Service, you agree to be bound by these Terms.
-
-You must be at least 18 years of age to use the Service. You are responsible for maintaining account confidentiality.
-
-THE SERVICE IS PROVIDED "AS IS" WITHOUT WARRANTIES. We do not provide financial advice or trading recommendations.
-
-AI-generated content is provided for informational purposes only and may occasionally be inaccurate. You are solely responsible for your trading decisions.
-
-We are not liable for trading losses or any indirect damages. Our total liability will not exceed the amount you paid in the 3 months preceding any claim.`;
-
-  const content = title === "Privacy Policy" ? privacyContent : termsContent;
-
-  return (
-    <div style={{ fontSize: 13, lineHeight: 1.6, color: C.text, padding: 16 }}>
-      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, borderBottom: `1px solid ${C.border}`, paddingBottom: 16 }}>
-        {title}
-      </div>
-      <div style={{ whiteSpace: "pre-wrap" }}>
-        {content}
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
 // LOGIN SCREEN
+// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// LOGIN SCREEN - WITH PASSWORD VISIBILITY TOGGLE
 // ─────────────────────────────────────────────────────────────
 function LoginScreen({ signIn, signUp, authLoading, authError }) {
   const [mode, setMode] = useState("login");
@@ -5775,24 +5593,14 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
   const [displayName, setDisplayName] = useState("");
   const [localError, setLocalError] = useState("");
   const [showResetPassword, setShowResetPassword] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);   // ← NEW STATE
 
   const [confirmed, setConfirmed] = useState(false);
-  
-  // Legal documents state
-  const [agreePrivacy, setAgreePrivacy] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
 
   const handleSubmit = async () => {
     setLocalError("");
     if (!email || !password) { setLocalError("Please fill in all fields."); return; }
     if (mode === "signup") {
-      if (!agreePrivacy || !agreeTerms) {
-        setLocalError("Please accept both the Privacy Policy and Terms of Service to continue.");
-        return;
-      }
       const result = await signUp(email, password, displayName);
       if (result?.confirm) {
         setConfirmed(true);
@@ -5815,34 +5623,6 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
         localError={localError}
         authLoading={authLoading}
       />
-    );
-  }
-
-  // Show Privacy Policy modal
-  if (showPrivacy) {
-    return (
-      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div style={{ width: "100%", maxWidth: 600, maxHeight: "90vh", overflow: "auto", background: C.panel, borderRadius: 12, padding: 24, border: `1px solid ${C.border}` }}>
-          <LegalDocument title="Privacy Policy" />
-          <button onClick={() => setShowPrivacy(false)} style={{ width: "100%", padding: 12, marginTop: 16, background: C.green, color: "#000", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>
-            Back
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show Terms of Service modal
-  if (showTerms) {
-    return (
-      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div style={{ width: "100%", maxWidth: 600, maxHeight: "90vh", overflow: "auto", background: C.panel, borderRadius: 12, padding: 24, border: `1px solid ${C.border}` }}>
-          <LegalDocument title="Terms of Service" />
-          <button onClick={() => setShowTerms(false)} style={{ width: "100%", padding: 12, marginTop: 16, background: C.green, color: "#000", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>
-            Back
-          </button>
-        </div>
-      </div>
     );
   }
 
@@ -5916,53 +5696,6 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
             {/* Password field with visibility toggle */}
             {inp("Password", password, setPassword, showPassword ? "text" : "password", "••••••••")}
 
-            {/* Legal acceptance checkboxes for signup */}
-            {mode === "signup" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, background: C.border + "10", padding: 14, borderRadius: 8 }}>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <input
-                    type="checkbox"
-                    checked={agreePrivacy}
-                    onChange={e => setAgreePrivacy(e.target.checked)}
-                    style={{ marginTop: 4, cursor: "pointer", width: 18, height: 18, accentColor: C.green }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: 12, color: C.text, cursor: "pointer", display: "block" }}>
-                      I have read and accept the{" "}
-                      <button
-                        type="button"
-                        onClick={() => setShowPrivacy(true)}
-                        style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", fontSize: 12, fontWeight: 600, textDecoration: "underline" }}
-                      >
-                        Privacy Policy
-                      </button>
-                    </label>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <input
-                    type="checkbox"
-                    checked={agreeTerms}
-                    onChange={e => setAgreeTerms(e.target.checked)}
-                    style={{ marginTop: 4, cursor: "pointer", width: 18, height: 18, accentColor: C.green }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: 12, color: C.text, cursor: "pointer", display: "block" }}>
-                      I have read and accept the{" "}
-                      <button
-                        type="button"
-                        onClick={() => setShowTerms(true)}
-                        style={{ background: "none", border: "none", color: C.blue, cursor: "pointer", fontSize: 12, fontWeight: 600, textDecoration: "underline" }}
-                      >
-                        Terms of Service
-                      </button>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {confirmed && (
               <div style={{ background: C.yellow + "15", border: `1px solid ${C.yellow}30`, borderRadius: 8, padding: "14px", fontSize: 13, textAlign: "center" }}>
                 <div style={{ fontSize: 22, marginBottom: 8 }}>⚠️</div>
@@ -5991,7 +5724,7 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
 
             {!confirmed && (
               <>
-                <Btn onClick={handleSubmit} disabled={authLoading || (mode === "signup" && (!agreePrivacy || !agreeTerms))} style={{ width: "100%", padding: 14, fontSize: 14 }}>
+                <Btn onClick={handleSubmit} disabled={authLoading} style={{ width: "100%", padding: 14, fontSize: 14 }}>
                   {authLoading ? "Please wait..." : mode === "login" ? "Sign In →" : "Create Account →"}
                 </Btn>
                 
@@ -6149,7 +5882,7 @@ function DisciplineAnalytics({ trades, setView, accounts = [], currentAccountId,
   };
   const wr = arr => arr.length ? arr.filter(x => x.result === "Win").length / arr.length : null;
   const pct = v => v != null ? `${(v * 100).toFixed(0)}%` : "—";
-  // const avgFmt removed - unused return v != null ? v.toFixed(1) : "—"; };
+  const avgFmt = (arr, field) => { const v = avg(arr, field); return v != null ? v.toFixed(1) : "—"; };
 
   // ── Discipline trend (last 10) ────────────────────────────────────────────
   const last10 = accountTrades.slice(0, 10).map(t => t.discipline_score).filter(Boolean);
@@ -6684,7 +6417,6 @@ function App() {
   const [recoveryToken, setRecoveryToken] = useState(null);
 
   useEffect(() => {
-    // ULTRA DEBUG LOGGING
     console.log("=== RECOVERY TOKEN CHECK ===");
     console.log("window.location.href:", window.location.href);
     console.log("window.location.hash:", window.location.hash);
@@ -6736,6 +6468,7 @@ function App() {
 
   // If user is trying to reset password via token
   if (recoveryToken) {
+    console.log("✓✓✓ RECOVERY TOKEN DETECTED! Showing ResetPasswordScreen");
     return (
       <ResetPasswordScreen
         token={recoveryToken}
