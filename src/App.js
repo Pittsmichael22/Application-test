@@ -618,8 +618,6 @@ function normaliseTrade(data) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INSTRUMENT SETTINGS HOOK
-// eslint-disable-next-line no-unused-vars
-// eslint-disable-next-line no-unused-vars
 // ─────────────────────────────────────────────────────────────────────────────
 function useInstrumentSettings(userId) {
   const [instrumentSettings, setInstrumentSettings] = useState([]);
@@ -2333,8 +2331,6 @@ function Dashboard({
   profile,
   openTradeReview,
   updateTrade
-// eslint-disable-next-line no-unused-vars
-// eslint-disable-next-line no-unused-vars
 }) {
   const [selectedAccountId, setSelectedAccountId] = useState(() => 
     Array.isArray(accounts) && accounts.length > 0 ? accounts[0].id : null
@@ -3899,7 +3895,8 @@ function MonthlyCalendar({ trades = [], account = null, getDailyNote, saveDailyN
 function Analytics({ trades, accounts = [], currentAccountId, setCurrentAccountId, getDailyNote, saveDailyNote }) {
   const [dateRange, setDateRange] = useState("all");
   const [tab, setTab] = useState("overview");
-/* const selectedAccount = Array.isArray(accounts) 
+
+  const selectedAccount = Array.isArray(accounts) 
     ? accounts.find(a => a.id === currentAccountId) 
     : null;
 
@@ -5301,7 +5298,7 @@ function TradeLog({
 
 
 // ─────────────────────────────────────────────────────────────
-// RESET PASSWORD SCREEN (shown when user clicks email reset link)
+// RESET PASSWORD SCREEN (from email link)
 // ─────────────────────────────────────────────────────────────
 function ResetPasswordScreen({ token, onComplete, onCancel }) {
   const [newPassword, setNewPassword] = useState("");
@@ -5328,53 +5325,37 @@ function ResetPasswordScreen({ token, onComplete, onCancel }) {
 
     setLoading(true);
     try {
-      // First, exchange the recovery token for a session
-      const exchangeRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+      // Exchange recovery token for session, then update password
+      const verifyRes = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
         method: "POST",
-        headers: { 
-          apikey: SUPABASE_ANON_KEY, 
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          type: "recovery",
-          token: token
-        })
+        headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "recovery", token: token })
       });
 
-      const exchangeData = await exchangeRes.json();
-      console.log("Exchange response:", exchangeData);
-
-      if (!exchangeRes.ok || !exchangeData?.access_token) {
-        setError("Invalid or expired reset link. Request a new one.");
+      const verifyData = await verifyRes.json();
+      
+      if (!verifyRes.ok || !verifyData?.access_token) {
+        setError("Invalid or expired link. Request a new reset.");
         setLoading(false);
         return;
       }
 
-      // Now use the session token to update the password
+      // Update password with the session token
       const updateRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
         method: "PUT",
-        headers: { 
-          apikey: SUPABASE_ANON_KEY, 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${exchangeData.access_token}`
-        },
-        body: JSON.stringify({
-          password: newPassword
-        })
+        headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json", Authorization: `Bearer ${verifyData.access_token}` },
+        body: JSON.stringify({ password: newPassword })
       });
-
-      const updateData = await updateRes.json();
-      console.log("Update response:", updateData);
 
       if (updateRes.ok) {
         setSuccess(true);
         setTimeout(() => onComplete && onComplete(), 2000);
       } else {
-        setError(updateData?.error_description || updateData?.error || "Failed to reset password. Try again.");
+        const updateData = await updateRes.json();
+        setError(updateData?.error_description || "Failed to update password.");
       }
     } catch (e) {
-      console.log("Error:", e);
-      setError("Connection error. Please try again.");
+      setError("Connection error.");
     } finally {
       setLoading(false);
     }
@@ -5383,92 +5364,46 @@ function ResetPasswordScreen({ token, onComplete, onCancel }) {
   if (success) {
     return (
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-        <div style={{ width: "100%", maxWidth: 420 }}>
-          <Card>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-              <h2 style={{ color: C.text, marginBottom: 8, fontSize: 20, fontWeight: 800 }}>Password Reset!</h2>
-              <p style={{ color: C.muted, fontSize: 14 }}>Your password has been successfully updated.</p>
-              <p style={{ color: C.sub, fontSize: 12, marginTop: 16 }}>Redirecting to sign in...</p>
-            </div>
-          </Card>
-        </div>
+        <Card style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text }}>Password Reset!</h2>
+          <p style={{ color: C.muted, marginTop: 12 }}>Redirecting to sign in...</p>
+        </Card>
       </div>
     );
   }
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: "100%", maxWidth: 420 }}>
-        <Card>
-          <div style={{ textAlign: "center", marginBottom: 24 }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🔐</div>
-            <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text, margin: 0 }}>Reset Your Password</h2>
-            <p style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>Enter your new password below</p>
+      <Card style={{ maxWidth: 420 }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🔐</div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text, margin: 0 }}>Reset Your Password</h2>
+          <p style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>Enter your new password</p>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 10, color: C.muted, textTransform: "uppercase" }}>New Password</label>
+            <div style={{ position: "relative", marginTop: 6 }}>
+              <input type={showPassword ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} style={{ width: "100%", padding: "12px 14px", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, boxSizing: "border-box" }} />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, cursor: "pointer" }}>
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>New Password</label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                  onKeyDown={e => e.key === "Enter" && handleReset()}
-                  style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14 }}
-                >
-                  {showPassword ? "🙈" : "👁️"}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label style={{ fontSize: 10, color: C.muted, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" }}>Confirm Password</label>
-              <input
-                type={showPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                onKeyDown={e => e.key === "Enter" && handleReset()}
-                style={{ width: "100%", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, padding: "12px 14px", color: C.text, fontSize: 14, outline: "none", boxSizing: "border-box" }}
-              />
-            </div>
-
-            {error && (
-              <div style={{ background: C.red + "15", border: `1px solid ${C.red}30`, borderRadius: 8, padding: "10px 14px", color: "#ff6b6b", fontSize: 13 }}>
-                ⚠️ {error}
-              </div>
-            )}
-
-            <Btn onClick={handleReset} disabled={loading} style={{ width: "100%", padding: 14 }}>
-              {loading ? "Resetting..." : "Reset Password →"}
-            </Btn>
-
-            <button
-              onClick={onCancel}
-              style={{
-                width: "100%",
-                padding: 10,
-                background: "none",
-                border: "none",
-                color: C.muted,
-                cursor: "pointer",
-                fontSize: 13,
-                textDecoration: "underline"
-              }}
-            >
-              Back to Sign In
-            </button>
+          <div>
+            <label style={{ fontSize: 10, color: C.muted, textTransform: "uppercase" }}>Confirm Password</label>
+            <input type={showPassword ? "text" : "password"} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} style={{ width: "100%", padding: "12px 14px", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, boxSizing: "border-box", marginTop: 6 }} />
           </div>
-        </Card>
-      </div>
+
+          {error && <div style={{ background: C.red + "15", border: `1px solid ${C.red}30`, borderRadius: 8, padding: "10px 14px", color: "#ff6b6b", fontSize: 13 }}>⚠️ {error}</div>}
+
+          <Btn onClick={handleReset} disabled={loading} style={{ width: "100%", padding: 14 }}>{loading ? "Resetting..." : "Reset Password →"}</Btn>
+          <button onClick={onCancel} style={{ width: "100%", padding: 10, background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13, textDecoration: "underline" }}>Back to Sign In</button>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -5635,8 +5570,6 @@ function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError,
 
 // ─────────────────────────────────────────────────────────────
 // RESET PASSWORD PAGE (Handles email reset link click)
-// eslint-disable-next-line no-unused-vars
-// eslint-disable-next-line no-unused-vars
 // ─────────────────────────────────────────────────────────────
 function ResetPasswordPage({ onBack }) {
   const [newPassword, setNewPassword] = useState("");
@@ -6059,8 +5992,6 @@ function DisciplineAnalytics({ trades, setView, accounts = [], currentAccountId,
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
   };
   const wr = arr => arr.length ? arr.filter(x => x.result === "Win").length / arr.length : null;
-  // eslint-disable-next-line no-unused-vars
-  // eslint-disable-next-line no-unused-vars
   const pct = v => v != null ? `${(v * 100).toFixed(0)}%` : "—";
   const avgFmt = (arr, field) => { const v = avg(arr, field); return v != null ? v.toFixed(1) : "—"; };
 
@@ -6597,58 +6528,18 @@ function App() {
   const [recoveryToken, setRecoveryToken] = useState(null);
 
   useEffect(() => {
-    console.log("=== RECOVERY TOKEN CHECK ===");
-    console.log("window.location.href:", window.location.href);
-    console.log("window.location.hash:", window.location.hash);
-    
     const hash = window.location.hash;
-    console.log("Hash value:", hash);
-    console.log("Hash includes 'type=recovery'?", hash.includes("type=recovery"));
     
     if (hash.includes("type=recovery")) {
-      console.log("✓ Found type=recovery in hash!");
-      
       const tokenMatch = hash.match(/token=([^&#]+)/);
-      console.log("Token regex match:", tokenMatch);
-      
       if (tokenMatch && tokenMatch[1]) {
-        const token = tokenMatch[1];
-        console.log("✓ Token extracted:", token);
-        console.log("✓ Setting recoveryToken state");
-        setRecoveryToken(token);
-      } else {
-        console.log("✗ Token regex didn't match");
+        setRecoveryToken(tokenMatch[1]);
       }
-    } else {
-      console.log("✗ 'type=recovery' NOT found in hash");
     }
-    
-    // Also listen for hash changes
-    const handleHashChange = () => {
-      console.log("Hash changed! New hash:", window.location.hash);
-      const newHash = window.location.hash;
-      
-      if (newHash.includes("type=recovery")) {
-        const tokenMatch = newHash.match(/token=([^&#]+)/);
-        if (tokenMatch && tokenMatch[1]) {
-          console.log("✓ Token found after hash change:", tokenMatch[1]);
-          setRecoveryToken(tokenMatch[1]);
-        }
-      }
-    };
-    
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
   }, []);
-
-  // DEBUG: Log recoveryToken whenever it changes
-  useEffect(() => {
-    console.log("recoveryToken state changed:", recoveryToken);
-  }, [recoveryToken]);
 
   // If user is trying to reset password via token
   if (recoveryToken) {
-    console.log("✓✓✓ RECOVERY TOKEN DETECTED! Showing ResetPasswordScreen");
     return (
       <ResetPasswordScreen
         token={recoveryToken}
