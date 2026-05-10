@@ -5313,15 +5313,26 @@ function ResetPasswordScreen({ tokenHash, supabaseClient, onComplete, onCancel }
   useEffect(() => {
     const verifyToken = async () => {
       try {
-        const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
-          type: "recovery",
-          token_hash: tokenHash
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            type: "recovery",
+            token_hash: tokenHash
+          })
         });
 
-        if (verifyError) {
-          setError("Invalid or expired reset link. " + verifyError.message);
-        } else if (data?.user) {
+        const data = await res.json();
+
+        if (res.ok && data?.access_token) {
           setVerified(true);
+          // Store the session token for password update
+          localStorage.setItem("_recovery_token", data.access_token);
+        } else {
+          setError("Invalid or expired reset link.");
         }
       } catch (e) {
         setError("Error verifying reset link: " + e.message);
@@ -5329,7 +5340,7 @@ function ResetPasswordScreen({ tokenHash, supabaseClient, onComplete, onCancel }
     };
 
     verifyToken();
-  }, [tokenHash, supabaseClient]);
+  }, [tokenHash]);
 
   const handleReset = async () => {
     setError("");
@@ -5348,16 +5359,35 @@ function ResetPasswordScreen({ tokenHash, supabaseClient, onComplete, onCancel }
 
     setLoading(true);
     try {
-      // Update password now that user is authenticated via verifyOtp
-      const { error } = await supabaseClient.auth.updateUser({
-        password: newPassword
+      const recoveryToken = localStorage.getItem("_recovery_token");
+      
+      if (!recoveryToken) {
+        setError("Session expired. Please request a new reset link.");
+        setLoading(false);
+        return;
+      }
+
+      // Update password with the recovery session token
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+          "Authorization": `Bearer ${recoveryToken}`
+        },
+        body: JSON.stringify({
+          password: newPassword
+        })
       });
 
-      if (error) {
-        setError(error.message || "Failed to update password");
-      } else {
+      const data = await res.json();
+
+      if (res.ok) {
+        localStorage.removeItem("_recovery_token");
         setSuccess(true);
         setTimeout(() => onComplete && onComplete(), 2000);
+      } else {
+        setError(data?.error_description || data?.error || "Failed to update password");
       }
     } catch (e) {
       console.error("Password update error:", e);
