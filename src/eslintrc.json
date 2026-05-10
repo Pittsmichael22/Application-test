@@ -1,0 +1,19 @@
+{
+  "extends": ["react-app"],
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {
+        "args": "none",
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "useInstrumentSettings|selectedAccountId|setSelectedAccountId|selectedAccount|ResetPasswordPage|avgFmt"
+      }
+    ],
+    "react-hooks/exhaustive-deps": [
+      "warn",
+      {
+        "additionalHooks": "useCustomHook"
+      }
+    ]
+  }
+}
