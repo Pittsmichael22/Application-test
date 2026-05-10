@@ -5298,6 +5298,133 @@ function TradeLog({
 
 
 // ─────────────────────────────────────────────────────────────
+// RESET PASSWORD SCREEN (from email recovery link)
+// ─────────────────────────────────────────────────────────────
+function ResetPasswordScreen({ token, onComplete, onCancel }) {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleReset = async () => {
+    setError("");
+    if (!newPassword || !confirmPassword) {
+      setError("Please fill in both password fields.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Supabase recovery endpoint - sends token + new password
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          type: "recovery",
+          token: token,
+          password: newPassword
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data?.user) {
+        setSuccess(true);
+        setTimeout(() => onComplete && onComplete(), 2000);
+      } else {
+        console.error("Password reset error:", data);
+        setError(data?.error_description || data?.error || "Failed to reset password");
+      }
+    } catch (e) {
+      console.error("Password reset exception:", e);
+      setError("Connection error: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <Card style={{ textAlign: "center", maxWidth: 420 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text }}>Password Reset!</h2>
+          <p style={{ color: C.muted, marginTop: 12 }}>Redirecting to sign in...</p>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <Card style={{ maxWidth: 420 }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🔐</div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text, margin: 0 }}>Reset Your Password</h2>
+          <p style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>Enter your new password</p>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", display: "block", marginBottom: 6 }}>New Password</label>
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleReset()}
+                style={{ width: "100%", padding: "12px 14px", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, boxSizing: "border-box" }}
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: C.muted, cursor: "pointer" }}>
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ fontSize: 10, color: C.muted, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Confirm Password</label>
+            <input
+              type={showPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleReset()}
+              style={{ width: "100%", padding: "12px 14px", background: "#1a1d2e", border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, boxSizing: "border-box" }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ background: C.red + "15", border: `1px solid ${C.red}30`, borderRadius: 8, padding: "10px 14px", color: "#ff6b6b", fontSize: 13 }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          <Btn onClick={handleReset} disabled={loading} style={{ width: "100%", padding: 14 }}>
+            {loading ? "Resetting..." : "Reset Password →"}
+          </Btn>
+
+          <button onClick={onCancel} style={{ width: "100%", padding: 10, background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13, textDecoration: "underline" }}>
+            Back to Sign In
+          </button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // PASSWORD RESET FORM (Forgot Password Flow)
 // ─────────────────────────────────────────────────────────────
 function PasswordResetForm({ onBack, email, setEmail, setLocalError, localError, authLoading }) {
@@ -6060,6 +6187,12 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  
+  // Modal navigation
+  const closeModal = () => {
+    setShowPrivacy(false);
+    setShowTerms(false);
+  };
 
   const handleSubmit = async () => {
     setLocalError("");
@@ -6100,7 +6233,7 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div style={{ width: "100%", maxWidth: 600, maxHeight: "90vh", overflow: "auto", background: C.panel, borderRadius: 12, padding: 24, border: `1px solid ${C.border}` }}>
           <LegalDocument title="Privacy Policy" />
-          <button onClick={() => setShowPrivacy(false)} style={{ width: "100%", padding: 12, marginTop: 16, background: C.green, color: "#000", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Back</button>
+          <button onClick={closeModal} style={{ width: "100%", padding: 12, marginTop: 16, background: C.green, color: "#000", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>← Back to Sign Up</button>
         </div>
       </div>
     );
@@ -6112,7 +6245,7 @@ function LoginScreen({ signIn, signUp, authLoading, authError }) {
       <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div style={{ width: "100%", maxWidth: 600, maxHeight: "90vh", overflow: "auto", background: C.panel, borderRadius: 12, padding: 24, border: `1px solid ${C.border}` }}>
           <LegalDocument title="Terms of Service" />
-          <button onClick={() => setShowTerms(false)} style={{ width: "100%", padding: 12, marginTop: 16, background: C.green, color: "#000", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Back</button>
+          <button onClick={closeModal} style={{ width: "100%", padding: 12, marginTop: 16, background: C.green, color: "#000", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>← Back to Sign Up</button>
         </div>
       </div>
     );
@@ -6922,6 +7055,37 @@ function App() {
     const interval = setInterval(pollNews, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Check for password recovery token in URL
+  const [recoveryToken, setRecoveryToken] = useState(null);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes("type=recovery")) {
+      const tokenMatch = hash.match(/token=([^&#]+)/);
+      if (tokenMatch && tokenMatch[1]) {
+        setRecoveryToken(decodeURIComponent(tokenMatch[1]));
+      }
+    }
+  }, []);
+
+  // If user is resetting password via email link
+  if (recoveryToken && !isLoggedIn) {
+    return (
+      <ResetPasswordScreen
+        token={recoveryToken}
+        onComplete={() => {
+          setRecoveryToken(null);
+          window.location.hash = "";
+          window.location.reload();
+        }}
+        onCancel={() => {
+          setRecoveryToken(null);
+          window.location.hash = "";
+        }}
+      />
+    );
+  }
 
   if (!isLoggedIn) {
     return <LoginScreen signIn={signIn} signUp={signUp} authLoading={authLoading} authError={authError} />;
