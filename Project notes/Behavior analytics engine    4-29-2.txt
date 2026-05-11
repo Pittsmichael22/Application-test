@@ -1,0 +1,416 @@
+Behavior analytics engine    4-29-2026
+(turning your trade log into a performance + psychology model)
+
+Upgrade Path: Trade Log → Behavior Analytics Engine
+This is a major shift from logging trades to understanding trader psychology + edge detection. Here's the roadmap:
+
+Phase 1: Data Architecture (Foundation)
+What You Need to Capture
+Currently Missing:
+javascript// Add to trade schema
+{
+  // Decision-Making
+  decision_speed: "fast" | "moderate" | "overthink",
+  conviction_level: 1-10,  // How sure were you?
+  entry_signal: "ma_cross" | "support_bounce" | "breakout" | ...,
+  
+  // Emotional State (Real-time)
+  fear_level: 1-10,
+  greed_level: 1-10,
+  confidence: 1-10,
+  
+  // Rule Adherence
+  followed_rules: boolean,
+  rule_violations: string[],  // ["risked_too_much", "no_SL", "FOMO"]
+  
+  // Context
+  market_condition: "trending" | "ranging" | "volatile",
+  time_of_day: "morning" | "midday" | "afternoon",
+  is_news_event: boolean,
+  
+  // Outcome Data
+  exit_reason: "target_hit" | "stop_hit" | "manual_exit" | "abandoned",
+  luck_score: -5 to +5,  // Separates skill from luck
+  
+  // Meta
+  pre_trade_checklist_passed: boolean,
+  post_trade_reflection: string
+}
+Migration
+javascript// Add new columns to Supabase
+ALTER TABLE trades ADD COLUMN decision_speed TEXT;
+ALTER TABLE trades ADD COLUMN conviction_level INTEGER;
+ALTER TABLE trades ADD COLUMN entry_signal TEXT;
+ALTER TABLE trades ADD COLUMN fear_level INTEGER;
+ALTER TABLE trades ADD COLUMN greed_level INTEGER;
+ALTER TABLE trades ADD COLUMN market_condition TEXT;
+ALTER TABLE trades ADD COLUMN rule_violations TEXT[];
+ALTER TABLE trades ADD COLUMN exit_reason TEXT;
+ALTER TABLE trades ADD COLUMN luck_score INTEGER;
+ALTER TABLE trades ADD COLUMN pre_trade_checklist_passed BOOLEAN;
+ALTER TABLE trades ADD COLUMN post_trade_reflection TEXT;
+
+Phase 2: Real-Time Capture Layer
+Pre-Trade Form Expansion
+javascript// Replace existing TradeEntry with PRE + POST flow
+
+const PreTradeChecklist = () => {
+  const [checklist, setChecklist] = useState({
+    market_condition: null,      // Trending? Ranging?
+    conviction_level: 5,         // Slider 1-10
+    entry_signal: null,          // Dropdown: MA cross, Support, Breakout
+    pre_checklist_passed: false, // All boxes checked?
+  });
+  
+  // Only allow trade entry if checklist passes
+  return (
+    <div>
+      <h3>Pre-Trade Checkpoint</h3>
+      <ChecklistItem 
+        label="Market condition identified?" 
+        options={["Trending Up", "Trending Down", "Ranging", "Volatile"]}
+      />
+      <Slider 
+        label="Conviction Level" 
+        min={1} max={10} 
+        value={checklist.conviction_level}
+      />
+      <Dropdown 
+        label="Entry Signal Type"
+        options={["MA Cross", "Support Bounce", "Breakout", "Mean Reversion"]}
+      />
+      <Checkbox label="All rules reviewed?" />
+      
+      {/* Only enable trade entry if all checked */}
+      <Button disabled={!checklist.pre_checklist_passed}>
+        Enter Trade
+      </Button>
+    </div>
+  );
+};
+Post-Trade Reflection
+javascriptconst PostTradeReflection = ({ trade }) => {
+  const [reflection, setReflection] = useState({
+    exit_reason: null,        // Why did you exit?
+    emotional_state_exit: 5,  // How felt at exit?
+    fear_level: 5,
+    greed_level: 5,
+    rule_violations: [],      // ["risked_too_much", "no_stop_loss"]
+    lessons: "",              // Free text
+  });
+  
+  return (
+    <div>
+      <h3>Post-Trade Journal</h3>
+      <Dropdown 
+        label="Why did you exit?"
+        options={["Target Hit", "Stop Hit", "Manual Exit", "Abandoned"]}
+      />
+      <Slider label="Fear Level at Exit" min={1} max={10} />
+      <Slider label="Greed Level at Exit" min={1} max={10} />
+      <MultiSelect 
+        label="Rule Violations"
+        options={[
+          "Risked too much",
+          "Ignored stop loss",
+          "Emotional entry",
+          "News event ignored",
+          "Revenge trading"
+        ]}
+      />
+      <TextArea label="What did you learn?" />
+    </div>
+  );
+};
+
+Phase 3: Analytics Engine
+Core Metrics
+javascript// Build these dashboards
+
+const BehaviorAnalytics = ({ trades }) => {
+  
+  // 1. WIN RATE BY CONVICTION
+  const winRateByConviction = trades.reduce((acc, t) => {
+    const bucket = Math.round(t.conviction_level / 2) * 2;
+    acc[bucket] = acc[bucket] || { wins: 0, total: 0 };
+    acc[bucket].total++;
+    if (t.result === "Win") acc[bucket].wins++;
+    return acc;
+  }, {});
+  // Shows: "You win 75% when conviction > 7, but only 42% when conviction < 5"
+  
+  // 2. DECISION SPEED IMPACT
+  const speedAnalysis = {
+    fast: calculateMetrics(trades.filter(t => t.decision_speed === "fast")),
+    moderate: calculateMetrics(trades.filter(t => t.decision_speed === "moderate")),
+    overthink: calculateMetrics(trades.filter(t => t.decision_speed === "overthink")),
+  };
+  // Shows: "Fast decisions → 60% WR, Overthinking → 35% WR"
+  
+  // 3. EMOTIONAL STATE CORRELATION
+  const emotionalImpact = {
+    high_fear_high_greed: trades.filter(t => t.fear_level > 7 && t.greed_level > 7),
+    // These are usually the losses
+  };
+  
+  // 4. RULE VIOLATION COST
+  const violationCost = trades
+    .filter(t => t.rule_violations.length > 0)
+    .map(t => ({
+      violation: t.rule_violations[0],
+      pnl: t.pnl,
+      result: t.result
+    }))
+    .reduce((acc, item) => {
+      acc[item.violation] = acc[item.violation] || { total_pnl: 0, count: 0 };
+      acc[item.violation].total_pnl += item.pnl;
+      acc[item.violation].count++;
+      return acc;
+    }, {});
+  // Shows: "Every 'risked_too_much' violation costs you avg $287"
+  
+  // 5. TIME OF DAY EDGE
+  const timeOfDayWinRate = trades.reduce((acc, t) => {
+    const hour = parseInt(t.trade_time.split(":")[0]);
+    const period = hour < 12 ? "morning" : hour < 16 ? "afternoon" : "evening";
+    acc[period] = acc[period] || { wins: 0, total: 0 };
+    acc[period].total++;
+    if (t.result === "Win") acc[period].wins++;
+    return acc;
+  }, {});
+  // Shows: "Morning trades: 68% WR, Afternoon: 42% WR"
+  
+  // 6. NEWS EVENT PERFORMANCE
+  const newsImpact = {
+    with_news: calculateMetrics(trades.filter(t => t.is_news_event)),
+    without_news: calculateMetrics(trades.filter(t => !t.is_news_event)),
+  };
+  
+  // 7. LUCK vs SKILL
+  const skillMetrics = trades.map(t => ({
+    trade_id: t.id,
+    pnl: t.pnl,
+    expected_pnl: calculateExpectedValue(t),
+    luck_score: t.pnl - calculateExpectedValue(t),
+    was_skill: Math.abs(t.pnl - calculateExpectedValue(t)) < 100,
+  }));
+  // Shows: "Your 'wins' are 60% skill, 40% luck"
+  
+  return (
+    <div>
+      <ConvictionChart data={winRateByConviction} />
+      <DecisionSpeedComparison data={speedAnalysis} />
+      <EmotionalStateHeatmap trades={trades} />
+      <RuleViolationCost data={violationCost} />
+      <TimeOfDayEdge data={timeOfDayWinRate} />
+      <NewsEventAnalysis data={newsImpact} />
+      <SkillVsLuckAnalysis data={skillMetrics} />
+    </div>
+  );
+};
+
+function calculateMetrics(tradeSet) {
+  return {
+    win_rate: (tradeSet.filter(t => t.result === "Win").length / tradeSet.length) * 100,
+    avg_win: tradeSet.filter(t => t.result === "Win").reduce((s, t) => s + t.pnl, 0) / tradeSet.filter(t => t.result === "Win").length,
+    avg_loss: tradeSet.filter(t => t.result === "Loss").reduce((s, t) => s + t.pnl, 0) / tradeSet.filter(t => t.result === "Loss").length,
+    profit_factor: Math.abs((tradeSet.filter(t => t.result === "Win").reduce((s, t) => s + t.pnl, 0)) / (tradeSet.filter(t => t.result === "Loss").reduce((s, t) => s + t.pnl, 0))),
+    total_trades: tradeSet.length,
+    total_pnl: tradeSet.reduce((s, t) => s + t.pnl, 0),
+  };
+}
+
+Phase 4: Pattern Detection & Alerts
+Behavioral Red Flags
+javascriptconst BehaviorAlerts = ({ trades }) => {
+  const alerts = [];
+  
+  // 🚨 Alert 1: Revenge Trading Pattern
+  const recentLosses = trades.slice(0, 5).filter(t => t.result === "Loss");
+  if (recentLosses.length >= 3) {
+    const nextTrades = trades.slice(0, 3);
+    const hasIncreased = nextTrades[0]?.position_size > recentLosses[0]?.position_size;
+    if (hasIncreased) {
+      alerts.push({
+        type: "REVENGE_TRADING",
+        severity: "HIGH",
+        message: "Pattern detected: 3 losses followed by increased position size",
+        recommendation: "Take a 15-min break before next trade"
+      });
+    }
+  }
+  
+  // 🚨 Alert 2: Time-Based Bias
+  if (timeOfDayWinRate.afternoon < 40) {
+    alerts.push({
+      type: "TIME_BIAS",
+      severity: "MEDIUM",
+      message: "Afternoon trades only win 40% (vs 70% mornings)",
+      recommendation: "Consider stopping trading after 2pm"
+    });
+  }
+  
+  // 🚨 Alert 3: Emotion Spiral
+  const lastTrade = trades[0];
+  if (lastTrade.fear_level > 8 && lastTrade.greed_level > 8) {
+    alerts.push({
+      type: "EMOTIONAL_SPIRAL",
+      severity: "CRITICAL",
+      message: "High fear + high greed detected (losing combo)",
+      recommendation: "STEP AWAY. This emotional state is costing you ~$450/trade"
+    });
+  }
+  
+  // 🚨 Alert 4: Rule Violation Streak
+  const recentViolations = trades.slice(0, 10).filter(t => t.rule_violations.length > 0);
+  if (recentViolations.length >= 5) {
+    alerts.push({
+      type: "DISCIPLINE_BREAKDOWN",
+      severity: "HIGH",
+      message: "5 of last 10 trades had rule violations",
+      recommendation: "Audit your rules. They may be unrealistic or you need system changes"
+    });
+  }
+  
+  return (
+    <div>
+      {alerts.map(alert => (
+        <AlertCard
+          type={alert.type}
+          severity={alert.severity}
+          message={alert.message}
+          recommendation={alert.recommendation}
+        />
+      ))}
+    </div>
+  );
+};
+
+Phase 5: Predictive Psychology Model
+Edge Discovery
+javascriptconst EdgeDetection = ({ trades }) => {
+  // Your ACTUAL edges (statistically significant)
+  
+  const edges = [];
+  
+  // Edge 1: Conviction-Based
+  const convictionByWR = {};
+  trades.forEach(t => {
+    const bucket = Math.round(t.conviction_level / 2) * 2;
+    if (!convictionByWR[bucket]) convictionByWR[bucket] = { wins: 0, total: 0 };
+    convictionByWR[bucket].total++;
+    if (t.result === "Win") convictionByWR[bucket].wins++;
+  });
+  
+  const significantConvictionEdge = Object.entries(convictionByWR)
+    .filter(([_, data]) => data.total >= 10)  // Min 10 trades
+    .find(([_, data]) => (data.wins / data.total) > 0.65);
+  
+  if (significantConvictionEdge) {
+    edges.push({
+      name: "High Conviction Edge",
+      metric: `Conviction ${significantConvictionEdge[0]}+`,
+      win_rate: (significantConvictionEdge[1].wins / significantConvictionEdge[1].total * 100).toFixed(1),
+      sample_size: significantConvictionEdge[1].total,
+      expected_value: calculateExpectedValue(significantConvictionEdge[1]),
+      action: "Only take trades with conviction > 7"
+    });
+  }
+  
+  // Edge 2: Morning Market Edge
+  const morningWins = trades
+    .filter(t => parseInt(t.trade_time.split(":")[0]) < 12)
+    .filter(t => t.result === "Win").length;
+  const morningTotal = trades
+    .filter(t => parseInt(t.trade_time.split(":")[0]) < 12).length;
+  
+  if ((morningWins / morningTotal) > 0.62 && morningTotal >= 15) {
+    edges.push({
+      name: "Morning Bias",
+      metric: "Trades before 12pm",
+      win_rate: (morningWins / morningTotal * 100).toFixed(1),
+      sample_size: morningTotal,
+      action: "Concentrate volume in morning session"
+    });
+  }
+  
+  // Edge 3: Rule-Following Edge
+  const ruleFollowing = trades.filter(t => !t.rule_violations.length);
+  const ruleFollowingWR = ruleFollowing.filter(t => t.result === "Win").length / ruleFollowing.length;
+  
+  const ruleBreaking = trades.filter(t => t.rule_violations.length > 0);
+  const ruleBreakingWR = ruleBreaking.filter(t => t.result === "Win").length / ruleBreaking.length;
+  
+  if (ruleFollowingWR - ruleBreakingWR > 0.15) {
+    edges.push({
+      name: "Discipline Edge",
+      metric: "Following your rules",
+      win_rate: (ruleFollowingWR * 100).toFixed(1),
+      vs_breaking_rules: (ruleBreakingWR * 100).toFixed(1),
+      sample_size: ruleFollowing.length,
+      action: "Automate rule enforcement - this is your biggest edge"
+    });
+  }
+  
+  return (
+    <div>
+      <h2>Your Discovered Edges</h2>
+      {edges.length === 0 ? (
+        <p>Need 30+ trades to identify statistical edges</p>
+      ) : (
+        edges.map(edge => (
+          <EdgeCard
+            name={edge.name}
+            metrics={edge}
+            recommendation={edge.action}
+          />
+        ))
+      )}
+    </div>
+  );
+};
+
+Phase 6: Dashboard Evolution
+CURRENT (Trade Logger):
+├─ Trade Entry Form
+├─ Trade History
+└─ Basic Win/Loss Chart
+
+EVOLVED (Behavior Analytics):
+├─ Real-Time Alerts
+│  ├─ Revenge Trading Detection
+│  ├─ Emotional Spiral Warning
+│  └─ Rule Violation Alerts
+├─ Psychology Dashboard
+│  ├─ Conviction vs Win Rate
+│  ├─ Emotional State Heatmap
+│  ├─ Time-of-Day Performance
+│  └─ News Event Impact
+├─ Edge Detection
+│  ├─ Statistical Edges Found
+│  ├─ Expected Value Calculator
+│  └─ Skill vs Luck Analysis
+├─ Behavior Patterns
+│  ├─ Decision Speed Impact
+│  ├─ Rule Violation Cost
+│  └─ Market Condition Performance
+└─ Coaching Engine
+   ├─ Custom Alerts
+   ├─ Automated Recommendations
+   └─ Personalized Rules Updater
+
+Implementation Priority
+PriorityPhaseEffortImpact🔴 1Add capture fields (Phase 1-2)4-6 hours80% of value🟠 2Build analytics charts (Phase 3)6-8 hoursVisible patterns🟡 3Add alert system (Phase 4)4-5 hoursReal-time coaching🟢 4Edge detection (Phase 5)6-8 hoursAction items🔵 5Predictive coaching (Phase 6)8-10 hoursLong-term
+
+Quick Win: Start Here
+javascript// Add this ONE field first (biggest ROI)
+{
+  rule_violations: [],  // ["risked_too_much", "no_stop_loss", "emotional_entry"]
+}
+
+// Then build ONE chart:
+const RuleViolationCost = ({ trades }) => {
+  // Calculate: "Each rule violation costs $X"
+  // This alone changes behavior immediately
+};
+Why? Because traders often don't know their rules are costing them money. Quantifying it changes behavior instantly.

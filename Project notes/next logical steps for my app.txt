@@ -1,0 +1,65 @@
+next logical steps for my app?
+
+Prioritized roadmap for your app (Futures.OS):
+Phase 1: Stabilize & Polish (Next 1–2 Weeks)
+
+Fix Password Reset Flow (Highest Priority)
+Make sure the reset link from email actually works on Vercel.
+Add proper deep link handling in App.js.
+
+Add Environment Variables on Vercel
+Move SUPABASE_URL and SUPABASE_ANON_KEY to Vercel Environment Variables (don’t hardcode them).
+
+Basic Error Handling & Loading States
+Show proper loading spinners when fetching trades.
+Graceful error messages when Supabase is down.
+
+Mobile Responsiveness
+Test thoroughly on phone (bottom nav, modals, tables).
+
+
+
+Phase 2: Core Improvements (Next 3–4 Weeks)
+
+User Accounts & Profiles
+Multiple accounts per user (already partially there).
+Profile picture, bio, trading style.
+
+Better AI Coaching
+Make the AI insights more intelligent (e.g., weekly summary email).
+Add “Trade Streak” and “Psychology Score” trends.
+
+Import Improvements
+Support more brokers (Tradovate, NinjaTrader, etc.).
+Better CSV error handling.
+
+Data Backup / Export
+Allow users to export all their trades as CSV.
+
+
+
+Phase 3: Growth & Monetization
+
+Community / Leaderboard (Optional but powerful)
+Anonymous performance rankings.
+Top setups of the week.
+
+Premium Features
+Advanced AI coaching (more detailed analysis).
+Backtesting integration.
+Alerts for news/events.
+
+Marketing
+Create a simple landing page.
+Record a 2-minute demo video.
+Share on trading communities (Reddit, Discord, Twitter).
+
+
+
+My Personal Recommendation for Right Now:
+Focus on Phase 1 first:
+
+Get password reset working reliably.
+Clean up the code so it builds without warnings.
+Add environment variables on Vercel.
+Test the full signup → login → trade log flow with a friend.
