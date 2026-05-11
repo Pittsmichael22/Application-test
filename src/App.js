@@ -6523,6 +6523,47 @@ function ProfileSettings({ profile, updateProfile, signOut, setView, supabase, u
         <Btn variant="danger" onClick={signOut} style={{ width: "100%" }}>Sign Out</Btn>
       </Card>
 
+      {/* AI FEATURES TOGGLE */}
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>AI Features</div>
+            <div style={{ fontSize: 12, color: C.muted }}>Process data with Anthropic AI</div>
+          </div>
+          <div style={{
+            padding: "4px 12px",
+            borderRadius: 20,
+            fontSize: 11,
+            fontWeight: 700,
+            background: (profile?.ai_features_enabled ?? true) ? `${C.green}20` : `${C.red}20`,
+            color: (profile?.ai_features_enabled ?? true) ? C.green : C.red,
+          }}>
+            {(profile?.ai_features_enabled ?? true) ? "ENABLED" : "DISABLED"}
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
+          When enabled, your trade data may be processed by Anthropic's AI. When disabled, no data is sent to external AI services.
+        </div>
+        <Btn 
+          onClick={() => handleAiFeatureToggle(profile, updateProfile, userId)}
+          style={{ width: "100%" }}
+        >
+          {(profile?.ai_features_enabled ?? true) ? "Disable AI Features" : "Enable AI Features"}
+        </Btn>
+      </Card>
+
+      {/* ACCOUNT DELETION */}
+      <Card style={{ borderLeft: `4px solid ${C.red}` }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.red, marginBottom: 4 }}>⚠️ Delete Account</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>Permanently delete your account and all associated data. This action cannot be undone.</div>
+        <DeleteAccountButton 
+          userId={userId} 
+          supabase={supabase} 
+          signOut={signOut}
+          setView={setView}
+        />
+      </Card>
+
       {currentAccountId && supabase && userId && (
         <InstrumentsManager 
           currentAccountId={currentAccountId}
@@ -6530,6 +6571,169 @@ function ProfileSettings({ profile, updateProfile, signOut, setView, supabase, u
           userId={userId}
         />
       )}
+    </div>
+  );
+}
+
+// Helper function for AI Features toggle - using your existing fetch pattern
+async function handleAiFeatureToggle(profile, updateProfile, userId) {
+  try {
+    const newAiFeatureState = !(profile?.ai_features_enabled ?? true);
+    
+    const SUPABASE_URL = "https://wgyxegrtqoafaipizkzs.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndneXhlZ3J0cW9hZmFpcGl6a3pzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MTg3NTcsImV4cCI6MjA5MjM5NDc1N30.KP3DE4414of-bzFoSJ2jePyccO3jL3Gp2cve7DkOp5k";
+    const token = localStorage.getItem("fos_token") || SUPABASE_ANON_KEY;
+    
+    // Use email to identify the profile (we know this column exists)
+    const email = profile?.email;
+    
+    if (!email) {
+      throw new Error('No email found in profile');
+    }
+    
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?email=eq.${encodeURIComponent(email)}`, {
+      method: "PATCH",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({ ai_features_enabled: newAiFeatureState }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`${res.status}: ${errorText}`);
+    }
+
+    const updatedProfile = await res.json();
+    
+    // Update local profile
+    if (updateProfile && updatedProfile.length > 0) {
+      updateProfile(updatedProfile[0]);
+    }
+
+    alert(`✓ AI Features ${newAiFeatureState ? 'enabled' : 'disabled'}`);
+  } catch (error) {
+    console.error('Error:', error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+// Component for account deletion with confirmation
+function DeleteAccountButton({ userId, supabase, signOut, setView }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (confirmText !== 'DELETE') {
+      alert('Please type DELETE to confirm.');
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      const SUPABASE_URL = "https://wgyxegrtqoafaipizkzs.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndneXhlZ3J0cW9hZmFpcGl6a3pzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MTg3NTcsImV4cCI6MjA5MjM5NDc1N30.KP3DE4414of-bzFoSJ2jePyccO3jL3Gp2cve7DkOp5k";
+      const token = localStorage.getItem("fos_token") || SUPABASE_ANON_KEY;
+
+      // Delete profile data
+      const deleteProfileRes = await fetch(`${SUPABASE_URL}/rest/v1/profiles?user_id=eq.${userId}`, {
+        method: "DELETE",
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!deleteProfileRes.ok) {
+        throw new Error(`Failed to delete profile: ${deleteProfileRes.statusText}`);
+      }
+
+      console.log('✓ Account deleted');
+      alert('✓ Account deleted. Logging out...');
+      
+      // Clear token and sign out
+      localStorage.clear();
+      await signOut();
+      setView('dashboard');
+    } catch (error) {
+      console.error('Error deleting account:', error.message);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  if (!showConfirm) {
+    return (
+      <Btn 
+        variant="danger" 
+        onClick={() => setShowConfirm(true)}
+        style={{ width: "100%" }}
+      >
+        Delete My Account
+      </Btn>
+    );
+  }
+
+  return (
+    <div style={{ background: `${C.red}15`, border: `2px solid ${C.red}`, borderRadius: 8, padding: 12 }}>
+      <div style={{ fontSize: 12, color: C.red, marginBottom: 12, lineHeight: 1.5 }}>
+        <strong>This will permanently delete:</strong>
+        <ul style={{ margin: "8px 0 0 0", paddingLeft: 16 }}>
+          <li>Your user account</li>
+          <li>All profile settings</li>
+          <li>Your entire trade history</li>
+          <li>All associated data</li>
+        </ul>
+      </div>
+
+      <label style={{ display: "block", fontSize: 12, color: C.muted, marginBottom: 8 }}>
+        Type <strong style={{ color: C.text }}>DELETE</strong> to confirm:
+      </label>
+      <input
+        type="text"
+        placeholder="Type DELETE"
+        value={confirmText}
+        onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
+        disabled={isDeleting}
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          background: "#1a1d2e",
+          border: `1px solid ${confirmText === 'DELETE' ? C.green : C.border}`,
+          borderRadius: 6,
+          color: C.text,
+          fontSize: 13,
+          marginBottom: 12,
+          boxSizing: "border-box",
+        }}
+      />
+
+      <div style={{ display: "flex", gap: 12 }}>
+        <Btn 
+          onClick={handleDelete}
+          disabled={isDeleting || confirmText !== 'DELETE'}
+          variant="danger"
+          style={{ flex: 1 }}
+        >
+          {isDeleting ? "Deleting..." : "Permanently Delete"}
+        </Btn>
+        <Btn 
+          onClick={() => {
+            setShowConfirm(false);
+            setConfirmText('');
+          }}
+          disabled={isDeleting}
+          style={{ flex: 1 }}
+        >
+          Cancel
+        </Btn>
+      </div>
     </div>
   );
 }
